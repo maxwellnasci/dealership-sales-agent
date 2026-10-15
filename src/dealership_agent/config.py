@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     langfuse_host: str = "https://cloud.langfuse.com"
 
     # --- Negócio ----------------------------------------------------------
+    # Nome do próprio assistente (usado na persona das respostas).
+    agent_name: str = "Léo"
     # Operador humano que recebe o transbordo (human-in-the-loop).
     sales_rep_name: str = "o vendedor de plantão"
     # Número máximo de veículos sugeridos por resposta.

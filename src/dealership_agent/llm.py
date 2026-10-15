@@ -78,7 +78,10 @@ class OpenAILLMClient(LLMClient):
         prompt = [
             SystemMessage(
                 "Extraia APENAS o que o cliente afirmou nesta mensagem sobre o carro que "
-                "procura. Não invente nada; deixe campos ausentes como null."
+                "procura. Não invente nada; deixe campos ausentes como null. Atenção: "
+                "`name` é o PRIMEIRO NOME DA PESSOA (ex: 'Ana'), nunca um modelo de carro. "
+                "Marca do carro vai em `desired_make` (ex: Toyota) e o modelo em "
+                "`desired_model` (ex: 'Corolla' -> desired_model='Corolla')."
             ),
             HumanMessage(message),
         ]
@@ -92,7 +95,7 @@ class OpenAILLMClient(LLMClient):
         prompt: list[BaseMessage] = [SystemMessage(system_prompt), *messages]
         result = await self._model.ainvoke(prompt)
         if isinstance(result, AIMessage):
-            return result.text() if hasattr(result, "text") else str(result.content)
+            return str(result.content)
         return str(result)
 
     async def judge(self, rubric: str, conversation: str) -> float:

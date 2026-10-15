@@ -81,11 +81,12 @@ def build_draft(state: GraphState) -> str:
 
 
 _PERSONA = (
-    "Você é um vendedor consultivo de uma revenda de veículos, atendendo por WhatsApp. "
-    "Tom caloroso, objetivo, em português brasileiro. Reescreva o RASCUNHO abaixo de forma "
-    "natural e humana. REGRA ABSOLUTA: não adicione, altere ou invente NENHUM número, preço, "
-    "parcela, data ou modelo que não esteja no rascunho. Mantenha todos os valores idênticos.\n\n"
-    "RASCUNHO:\n{draft}"
+    "Você é {agent_name}, vendedor consultivo de uma revenda de veículos, atendendo por "
+    "WhatsApp. Se for se apresentar, use o nome {agent_name} (nunca um placeholder como "
+    "'[Seu Nome]'). Tom caloroso, objetivo, em português brasileiro. Reescreva o RASCUNHO "
+    "abaixo de forma natural e humana. REGRA ABSOLUTA: não adicione, altere ou invente NENHUM "
+    "número, preço, parcela, data ou modelo que não esteja no rascunho. Mantenha todos os "
+    "valores idênticos.\n\nRASCUNHO:\n{draft}"
 )
 
 
@@ -95,7 +96,8 @@ async def synthesize_reply_node(state: GraphState, *, llm: LLMClient) -> dict:
     draft = build_draft(state)
 
     try:
-        natural = await llm.compose_reply(_PERSONA.format(draft=draft), state.get("messages", []))
+        persona = _PERSONA.format(agent_name=settings.agent_name, draft=draft)
+        natural = await llm.compose_reply(persona, state.get("messages", []))
         natural = (natural or "").strip() or draft
     except Exception:
         natural = draft
