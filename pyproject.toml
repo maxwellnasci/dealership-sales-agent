@@ -37,6 +37,8 @@ packages = ["src/dealership_agent"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["src"]
+# Só testes em função; evita coletar modelos como TestDriveSlot (prefixo "Test").
+python_classes = []
 
 [tool.ruff]
 line-length = 100

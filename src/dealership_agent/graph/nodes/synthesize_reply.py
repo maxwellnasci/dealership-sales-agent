@@ -55,8 +55,9 @@ def build_draft(state: GraphState) -> str:
 
     if route == Intent.SCHEDULE_TEST_DRIVE.value and slot is not None:
         return (
-            f"{greeting} Agendei um test-drive do {slot.vehicle_label} para "
-            f"{slot.starts_at:%d/%m às %Hh%M}. Está bom pra você? Se precisar remarcar, é só dizer."
+            f"{greeting} Consigo agendar seu test-drive do {slot.vehicle_label} para "
+            f"{slot.starts_at:%d/%m às %Hh%M}. Esse único horário fica bom pra você? "
+            "Se não der, me avisa que eu verifico outra data na agenda."
         )
 
     if vehicles:
@@ -86,13 +87,16 @@ _PERSONA = (
     "'[Seu Nome]'). Tom caloroso, objetivo, em português brasileiro. Reescreva o RASCUNHO "
     "abaixo de forma natural e humana. REGRA ABSOLUTA: não adicione, altere ou invente NENHUM "
     "número, preço, parcela, data ou modelo que não esteja no rascunho. Mantenha todos os "
-    "valores idênticos.\n\nRASCUNHO:\n{draft}"
+    "valores idênticos. Em especial, para test-drive: ofereça EXATAMENTE UMA data/hora — a que "
+    "está no rascunho — e NUNCA sugira horários ou datas alternativas por conta própria.\n\n"
+    "RASCUNHO:\n{draft}"
 )
 
 
 async def synthesize_reply_node(state: GraphState, *, llm: LLMClient) -> dict:
     vehicles = state.get("retrieved_vehicles") or []
     quote = state.get("financing_quote")
+    slot = state.get("test_drive_slot")
     draft = build_draft(state)
 
     try:
@@ -102,7 +106,7 @@ async def synthesize_reply_node(state: GraphState, *, llm: LLMClient) -> dict:
     except Exception:
         natural = draft
 
-    flags = validate_reply(natural, vehicles, quote)
+    flags = validate_reply(natural, vehicles, quote, slot)
     final = draft if flags else natural  # alucinou valor -> volta ao rascunho seguro
 
     return {

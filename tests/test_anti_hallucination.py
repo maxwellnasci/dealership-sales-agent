@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from dealership_agent.guardrails.validator import validate_reply
-from dealership_agent.schemas.tools import FinancingQuote, Vehicle
+from dealership_agent.schemas.tools import FinancingQuote, TestDriveSlot, Vehicle
 from tests.conftest import ScriptedLLMClient
 
 _VEHICLE = Vehicle(
@@ -37,6 +39,30 @@ def test_validator_ignora_ano_e_prazo():
     # 2022 e "48 meses" não são valores monetários de preço.
     reply = "Temos o Corolla 2022, financiável em 48 meses."
     assert validate_reply(reply, [_VEHICLE], None) == []
+
+
+_SLOT = TestDriveSlot(
+    slot_id="V001-202610190900", vehicle_id="V001", vehicle_label="Toyota Corolla 2022",
+    starts_at=datetime(2026, 10, 19, 9, 0), confirmed=True,
+)
+
+
+def test_validator_aprova_a_data_do_slot():
+    reply = "Agendei seu test-drive para 19/10 às 09h00. Confirma?"
+    assert validate_reply(reply, [], None, _SLOT) == []
+
+
+def test_validator_barra_data_alternativa_inventada():
+    reply = "Tenho 19/10 às 09h00, mas também posso 20/10 às 14h00."
+    flags = validate_reply(reply, [], None, _SLOT)
+    assert "unverified_date:20/10" in flags
+    assert not any(f == "unverified_date:19/10" for f in flags)
+
+
+def test_validator_ignora_datas_fora_de_contexto_de_agenda():
+    # Sem slot, não checamos datas (evita falso positivo em conversa comum).
+    reply = "Podemos conversar dia 25/12 se quiser."
+    assert validate_reply(reply, [], None, None) == []
 
 
 async def test_no_de_sintese_volta_ao_rascunho_quando_llm_alucina(

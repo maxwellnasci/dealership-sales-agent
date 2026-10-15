@@ -13,10 +13,13 @@ from __future__ import annotations
 
 import re
 
-from dealership_agent.schemas.tools import FinancingQuote, Vehicle
+from dealership_agent.schemas.tools import FinancingQuote, TestDriveSlot, Vehicle
 
 # Captura valores em reais: "R$ 89.900", "89900", "1.234,56", "89.900,00".
 _MONEY_RE = re.compile(r"R?\$?\s*\d{1,3}(?:[.\s]\d{3})*(?:,\d{2})?|\b\d{4,}\b")
+
+# Captura datas "DD/MM" (com ou sem ano), para checar ambiguidade de agenda.
+_DATE_RE = re.compile(r"\b(\d{2})/(\d{2})(?:/\d{2,4})?\b")
 
 
 def _normalize(token: str) -> float | None:
@@ -49,9 +52,18 @@ def allowed_amounts(
 
 
 def validate_reply(
-    reply: str, vehicles: list[Vehicle], quote: FinancingQuote | None
+    reply: str,
+    vehicles: list[Vehicle],
+    quote: FinancingQuote | None,
+    slot: TestDriveSlot | None = None,
 ) -> list[str]:
-    """Retorna a lista de flags encontradas (vazia = resposta confiável)."""
+    """Retorna a lista de flags encontradas (vazia = resposta confiável).
+
+    Checa valores monetários (contra estoque/simulação) e, em contexto de
+    agendamento (`slot` presente), datas: qualquer DD/MM diferente do horário
+    reservado vira `unverified_date` — evita o agente oferecer um segundo
+    horário inventado e criar ambiguidade na agenda da revenda.
+    """
     allowed = allowed_amounts(vehicles, quote)
     flags: list[str] = []
 
@@ -65,5 +77,14 @@ def validate_reply(
             continue
         if not any(abs(value - a) <= 1 for a in allowed):
             flags.append(f"unverified_amount:{match.strip()}")
+
+    if slot is not None:
+        allowed_date = f"{slot.starts_at:%d/%m}"
+        seen: set[str] = set()
+        for dd, mm in _DATE_RE.findall(reply):
+            date = f"{dd}/{mm}"
+            if date != allowed_date and date not in seen:
+                seen.add(date)
+                flags.append(f"unverified_date:{date}")
 
     return flags
