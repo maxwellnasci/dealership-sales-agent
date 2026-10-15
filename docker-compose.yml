@@ -1,0 +1,42 @@
+# Sobe o agente com Postgres (checkpointing durável de produção).
+# A app usa CHECKPOINT_BACKEND=postgres e cria as tabelas no primeiro boot.
+#
+#   docker compose up --build
+#   curl -X POST localhost:8000/webhook -H 'content-type: application/json' \
+#        -d '{"phone":"+5541999990001","text":"quero um SUV ate 140 mil"}'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: dealer
+      POSTGRES_PASSWORD: dealer
+      POSTGRES_DB: dealership
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dealer -d dealership"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  agent:
+    build: .
+    environment:
+      CHECKPOINT_BACKEND: postgres
+      POSTGRES_DSN: postgresql://dealer:dealer@postgres:5432/dealership
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

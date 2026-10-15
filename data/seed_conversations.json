@@ -1,0 +1,20 @@
+[
+  {
+    "title": "Descoberta + opções + financiamento",
+    "phone": "+5541999990001",
+    "turns": [
+      "Oi, boa tarde!",
+      "Procuro um SUV até 140 mil, pra família",
+      "Gostei do primeiro. Como fica o financiamento?",
+      "Dá pra agendar um test-drive?"
+    ]
+  },
+  {
+    "title": "Pedido de vendedor humano (handoff)",
+    "phone": "+5541999990002",
+    "turns": [
+      "Queria um Corolla",
+      "Consigo um desconto à vista? Quero falar com um vendedor"
+    ]
+  }
+]

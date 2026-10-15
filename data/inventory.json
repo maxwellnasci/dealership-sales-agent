@@ -1,0 +1,17 @@
+[
+  {"vehicle_id": "V001", "make": "Toyota", "model": "Corolla", "year": 2022, "price": 129900.0, "mileage_km": 38000, "body_type": "sedan", "color": "prata"},
+  {"vehicle_id": "V002", "make": "Toyota", "model": "Corolla Cross", "year": 2023, "price": 164900.0, "mileage_km": 21000, "body_type": "suv", "color": "branco"},
+  {"vehicle_id": "V003", "make": "Honda", "model": "Civic", "year": 2021, "price": 119900.0, "mileage_km": 52000, "body_type": "sedan", "color": "preto"},
+  {"vehicle_id": "V004", "make": "Honda", "model": "HR-V", "year": 2022, "price": 139900.0, "mileage_km": 34000, "body_type": "suv", "color": "cinza"},
+  {"vehicle_id": "V005", "make": "Jeep", "model": "Renegade", "year": 2021, "price": 99900.0, "mileage_km": 61000, "body_type": "suv", "color": "vermelho"},
+  {"vehicle_id": "V006", "make": "Jeep", "model": "Compass", "year": 2023, "price": 179900.0, "mileage_km": 18000, "body_type": "suv", "color": "branco"},
+  {"vehicle_id": "V007", "make": "Volkswagen", "model": "Nivus", "year": 2022, "price": 114900.0, "mileage_km": 29000, "body_type": "suv", "color": "azul"},
+  {"vehicle_id": "V008", "make": "Volkswagen", "model": "Polo", "year": 2023, "price": 89900.0, "mileage_km": 15000, "body_type": "hatch", "color": "branco"},
+  {"vehicle_id": "V009", "make": "Volkswagen", "model": "T-Cross", "year": 2022, "price": 134900.0, "mileage_km": 31000, "body_type": "suv", "color": "prata"},
+  {"vehicle_id": "V010", "make": "Chevrolet", "model": "Onix", "year": 2023, "price": 84900.0, "mileage_km": 12000, "body_type": "hatch", "color": "preto"},
+  {"vehicle_id": "V011", "make": "Chevrolet", "model": "Tracker", "year": 2022, "price": 124900.0, "mileage_km": 27000, "body_type": "suv", "color": "cinza"},
+  {"vehicle_id": "V012", "make": "Hyundai", "model": "HB20", "year": 2023, "price": 79900.0, "mileage_km": 19000, "body_type": "hatch", "color": "prata"},
+  {"vehicle_id": "V013", "make": "Hyundai", "model": "Creta", "year": 2022, "price": 132900.0, "mileage_km": 33000, "body_type": "suv", "color": "branco"},
+  {"vehicle_id": "V014", "make": "Fiat", "model": "Toro", "year": 2022, "price": 149900.0, "mileage_km": 40000, "body_type": "picape", "color": "vermelho"},
+  {"vehicle_id": "V015", "make": "Fiat", "model": "Pulse", "year": 2023, "price": 99900.0, "mileage_km": 22000, "body_type": "suv", "color": "cinza"}
+]
