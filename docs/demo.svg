@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="802" viewBox="0 0 860 802" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15">
+  <style>
+    @keyframes reveal{0%{opacity:0;transform:translateY(3px)}2.86%{opacity:1;transform:translateY(0)}96.19%{opacity:1;transform:translateY(0)}100%{opacity:0}}
+    text { white-space: pre; }
+  </style>
+  <rect width="860" height="802" rx="10" fill="#0d1117"/>
+  <rect width="860" height="36" rx="10" fill="#161b22"/>
+  <rect y="26" width="860" height="10" fill="#161b22"/>
+  <circle cx="20" cy="18" r="6" fill="#ff5f56"/>
+  <circle cx="40" cy="18" r="6" fill="#ffbd2e"/>
+  <circle cx="60" cy="18" r="6" fill="#27c93f"/>
+  <text x="430" y="23" fill="#8b949e" text-anchor="middle" font-size="13">dealership-sales-agent — demo</text>
+    <text x="22" y="54" fill="#8b949e" style="animation:reveal 15.76s ease both infinite;animation-delay:0.00s">$ python scripts/demo.py</text>
+    <text x="22" y="80" fill="#8b949e" style="animation:reveal 15.76s ease both infinite;animation-delay:0.42s">Modo do LLM: LLM real (DeepSeek via OpenRouter)</text>
+    <text x="22" y="106" fill="#c9d1d9" style="animation:reveal 15.76s ease both infinite;animation-delay:0.84s"> </text>
+    <text x="22" y="132" fill="#58a6ff" style="animation:reveal 15.76s ease both infinite;animation-delay:1.26s">🧑 Lead:  Oi, boa tarde!</text>
+    <text x="22" y="158" fill="#3fb950" style="animation:reveal 15.76s ease both infinite;animation-delay:1.68s">🤖 Léo:   Boa tarde! Aqui é o Léo, da revenda. 😊 Como posso te ajudar?</text>
+    <text x="22" y="184" fill="#c9d1d9" style="animation:reveal 15.76s ease both infinite;animation-delay:2.10s"> </text>
+    <text x="22" y="210" fill="#58a6ff" style="animation:reveal 15.76s ease both infinite;animation-delay:2.52s">🧑 Lead:  Procuro um SUV até 140 mil, pra família</text>
+    <text x="22" y="236" fill="#3fb950" style="animation:reveal 15.76s ease both infinite;animation-delay:2.94s">🤖 Léo:   Ótimas opções de SUV nessa faixa:</text>
+    <text x="22" y="262" fill="#3fb950" style="animation:reveal 15.76s ease both infinite;animation-delay:3.36s">          • Jeep Renegade 2021 (61.000 km) — R$ 99.900,00</text>
+    <text x="22" y="288" fill="#3fb950" style="animation:reveal 15.76s ease both infinite;animation-delay:3.78s">          • Fiat Pulse 2023 (22.000 km) — R$ 99.900,00</text>
+    <text x="22" y="314" fill="#3fb950" style="animation:reveal 15.76s ease both infinite;animation-delay:4.20s">          • VW Nivus 2022 (29.000 km) — R$ 114.900,00</text>
+    <text x="22" y="340" fill="#3fb950" style="animation:reveal 15.76s ease both infinite;animation-delay:4.62s">          Quer simular o financiamento de alguma?</text>
+    <text x="22" y="366" fill="#c9d1d9" style="animation:reveal 15.76s ease both infinite;animation-delay:5.04s"> </text>
+    <text x="22" y="392" fill="#58a6ff" style="animation:reveal 15.76s ease both infinite;animation-delay:5.46s">🧑 Lead:  Gostei do primeiro. Como fica o financiamento?</text>
+    <text x="22" y="418" fill="#3fb950" style="animation:reveal 15.76s ease both infinite;animation-delay:5.88s">🤖 Léo:   Jeep Renegade 2021 — entrada R$ 19.980,00,</text>
+    <text x="22" y="444" fill="#3fb950" style="animation:reveal 15.76s ease both infinite;animation-delay:6.30s">          48x de R$ 2.552,80 (total R$ 142.514,40).</text>
+    <text x="22" y="470" fill="#d29922" style="animation:reveal 15.76s ease both infinite;animation-delay:6.72s">          ↳ memória: lembrou do carro entre mensagens ✓</text>
+    <text x="22" y="496" fill="#c9d1d9" style="animation:reveal 15.76s ease both infinite;animation-delay:7.14s"> </text>
+    <text x="22" y="522" fill="#58a6ff" style="animation:reveal 15.76s ease both infinite;animation-delay:7.56s">🧑 Lead:  Dá pra agendar um test-drive?</text>
+    <text x="22" y="548" fill="#3fb950" style="animation:reveal 15.76s ease both infinite;animation-delay:7.98s">🤖 Léo:   Consigo agendar para 19/10 às 09h00. Esse horário fica bom?</text>
+    <text x="22" y="574" fill="#d29922" style="animation:reveal 15.76s ease both infinite;animation-delay:8.40s">          ↳ agenda: exatamente 1 horário, sem ambiguidade ✓</text>
+    <text x="22" y="600" fill="#c9d1d9" style="animation:reveal 15.76s ease both infinite;animation-delay:8.82s"> </text>
+    <text x="22" y="626" fill="#58a6ff" style="animation:reveal 15.76s ease both infinite;animation-delay:9.24s">🧑 Lead:  Consigo desconto? Quero falar com um vendedor</text>
+    <text x="22" y="652" fill="#d29922" style="animation:reveal 15.76s ease both infinite;animation-delay:9.66s">⏸  [handoff] grafo pausado via interrupt() — aguardando humano</text>
+    <text x="22" y="678" fill="#db6d28" style="animation:reveal 15.76s ease both infinite;animation-delay:10.08s">🧑‍💼 Carlos: Aqui é o Carlos. Consigo R$ 3.000 à vista — fechamos?</text>
+    <text x="22" y="704" fill="#3fb950" style="animation:reveal 15.76s ease both infinite;animation-delay:10.50s">🤖 (resume) mensagem do vendedor repassada ao lead ✓</text>
+    <text x="22" y="730" fill="#c9d1d9" style="animation:reveal 15.76s ease both infinite;animation-delay:10.92s"> </text>
+    <text x="22" y="756" fill="#d29922" style="animation:reveal 15.76s ease both infinite;animation-delay:11.34s">✓ 32 testes · anti-alucinação (Pydantic) · checkpointing · HITL</text>
+</svg>

@@ -10,6 +10,12 @@ lead — conversas naturais, confiáveis, com custo e qualidade mensuráveis.
 > StateGraph, checkpointing de memória entre mensagens, human-in-the-loop,
 > tool calling com retry e anti-alucinação com Pydantic.
 
+<p align="center">
+  <img src="docs/demo.svg" alt="Demonstração animada: conversa do agente no terminal" width="820">
+</p>
+
+<sub>Animação gerada por `scripts/gen_demo_svg.py` a partir de uma conversa real (DeepSeek via OpenRouter).</sub>
+
 ---
 
 ## Por que ele existe (a dor)
