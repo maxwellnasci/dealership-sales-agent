@@ -1,4 +1,4 @@
-"""LLM-as-judge: avaliação offline da qualidade das respostas (diferencial).
+"""LLM-as-judge: avaliação offline da qualidade das respostas.
 
 Roda uma conversa real pelo grafo e pede a um "juiz" (aqui determinístico, em
 produção um LLM) uma nota de 0 a 1 contra uma rubrica. É o esqueleto de uma

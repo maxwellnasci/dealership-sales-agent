@@ -6,9 +6,9 @@ Agente de vendas para **revendas de veículos**, atendendo leads por WhatsApp.
 Construído com **LangGraph** como uma máquina de estados de qualificação de
 lead — conversas naturais, confiáveis, com custo e qualidade mensuráveis.
 
-> Projeto de portfólio focado em evoluir um assistente de vendas com IA:
-> StateGraph, checkpointing de memória entre mensagens, human-in-the-loop,
-> tool calling com retry e anti-alucinação com Pydantic.
+> Capacidades: StateGraph com arestas condicionais, checkpointing de memória
+> entre mensagens, human-in-the-loop (interrupt), tool calling com retry e
+> anti-alucinação com Pydantic.
 
 <p align="center">
   <img src="docs/demo.svg" alt="Demonstração animada: conversa do agente no terminal" width="820">
@@ -52,8 +52,8 @@ Detalhes e justificativas em [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 | **Tool calling com retry** | `tools/inventory.py` (tenacity); `tools/financing.py`, `tools/calendar.py` |
 | **Anti-alucinação com Pydantic** | `schemas/*` (camada 1) + `guardrails/validator.py` (camada 2) |
 | **Async / Pydantic / pytest** | tudo `async`, perfis/tools tipados, `tests/` |
-| **Langfuse (diferencial)** | `observability/tracing.py` — custo + score (LLM-as-judge) |
-| **LLM-as-judge (diferencial)** | `llm.py::judge` + `tests/test_llm_judge.py` |
+| **Observabilidade (Langfuse)** | `observability/tracing.py` — custo + score por conversa |
+| **Avaliação (LLM-as-judge)** | `llm.py::judge` + `tests/test_llm_judge.py` |
 
 ## Como rodar
 
@@ -86,7 +86,7 @@ curl -X POST localhost:8000/webhook -H 'content-type: application/json' \
 Handoff: quando o grafo pausa, o `/webhook` devolve `interrupted: true` + o
 contexto; o vendedor responde via `POST /resume`.
 
-## Decisões de projeto que valem destacar
+## Decisões de projeto
 
 - **Ports & adapters no LLM** (`llm.py`): o grafo depende de uma interface
   `LLMClient`, não da SDK. Produção usa `with_structured_output`/`bind_tools`

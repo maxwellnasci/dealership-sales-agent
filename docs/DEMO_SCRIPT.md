@@ -1,65 +1,55 @@
-# Roteiro da demo (vídeo)
+# Walkthrough da demo
 
-Duração alvo: **3–4 min**. Objetivo: mostrar os 4 pilares em ação, numa
-conversa que um CTO reconhece como real.
+Percurso curto (~3–4 min) que exercita os quatro pilares do agente numa
+conversa de ponta a ponta.
 
 ## Preparação
 
 ```bash
 source .venv/bin/activate
-pytest -q                 # mostra a suíte verde primeiro (confiança)
+pytest -q                 # suíte verde
 python scripts/demo.py    # roda as duas conversas
 ```
 
-> Dica: grave uma vez em modo fallback (offline) e, se tiver chave, outra com
-> `OPENAI_API_KEY` setada, para mostrar o salto de naturalidade.
+> A demo roda offline (fallback determinístico). Com `OPENAI_API_KEY` definida,
+> as respostas passam a ser geradas por um LLM real.
 
-## Cena 1 — Descoberta + estoque + financiamento + agendamento (lead 1)
-
-Fala do apresentador enquanto roda:
+## Cenário 1 — Descoberta, estoque, financiamento e agendamento
 
 1. **"Oi, boa tarde!"** → o agente cumprimenta e pergunta o que o lead procura.
-   *Destacar:* roteamento por intenção (supervisor).
-2. **"Procuro um SUV até 140 mil, pra família"** → extrai perfil (carroceria +
-   orçamento) e já lista opções do estoque com preço real.
-   *Destacar:* reducer de perfil + tool de estoque tipada.
+   Exercita: roteamento por intenção (supervisor).
+2. **"Procuro um SUV até 140 mil, pra família"** → extrai o perfil (carroceria
+   e orçamento) e lista opções do estoque com preço real.
+   Exercita: reducer de perfil + tool de estoque tipada.
 3. **"Gostei do primeiro. Como fica o financiamento?"** → simula a parcela.
-   *Destacar:* **memória** (ele lembra do SUV sem repetir) + número vindo da
-   tool PRICE, não do LLM.
-4. **"Dá pra agendar um test-drive?"** → confirma data/hora.
-   *Destacar:* fluxo completo de qualificação → fechamento.
+   Exercita: memória entre mensagens (o carro é lembrado sem repetição) e
+   valores vindos da tool de financiamento, não do LLM.
+4. **"Dá pra agendar um test-drive?"** → confirma um horário específico.
+   Exercita: fluxo de qualificação até o agendamento.
 
-## Cena 2 — Human-in-the-loop (lead 2)
+## Cenário 2 — Human-in-the-loop
 
-1. **"Queria um Corolla"** → agente apresenta.
+1. **"Queria um Corolla"** → o agente apresenta a opção.
 2. **"Consigo um desconto à vista? Quero falar com um vendedor"** → o grafo
-   **pausa** (`interrupt`), mostra o contexto do lead para o operador.
-   *Destacar:* `interrupt()` nativo + checkpoint guardando o ponto exato.
-3. O "vendedor Carlos" responde → o grafo **retoma** (`Command(resume=...)`) e a
-   fala do humano vai ao lead.
-   *Destacar:* handoff real, não um chatbot que finge escalar.
+   pausa (`interrupt`) e devolve o contexto do lead ao operador.
+   Exercita: `interrupt()` nativo + checkpoint preservando o ponto de parada.
+3. A resposta do vendedor humano retoma o grafo (`Command(resume=...)`) e
+   segue ao lead.
+   Exercita: transbordo real, com estado preservado.
 
-## Cena 3 — Confiabilidade (fechamento técnico)
-
-Abrir `tests/test_anti_hallucination.py` e rodar:
+## Cenário 3 — Confiabilidade
 
 ```bash
 pytest tests/test_anti_hallucination.py -q
 ```
 
-Narrar: "Mesmo que o LLM tente oferecer um preço que não existe, o guardrail
-detecta e substitui pela resposta factual. O agente nunca mente um preço."
+Demonstra que, mesmo quando o LLM tenta citar um preço inexistente, o guardrail
+detecta e substitui pela resposta factual — o agente não afirma um valor que
+não esteja no estado.
 
-Fechar com `tests/test_llm_judge.py`: "E a qualidade é medida — LLM-as-judge dá
-nota a cada resposta, pronto para rodar no CI e alimentar o Langfuse."
+```bash
+pytest tests/test_llm_judge.py -q
+```
 
-## Frases de efeito para a entrevista
-
-- "Memória é um checkpointer por telefone; trocar SQLite por Postgres não muda
-  uma linha do grafo."
-- "Anti-alucinação é estrutural: preço não passa pelo LLM, ele só verbaliza o
-  que a tool tipada devolveu."
-- "O human-in-the-loop usa o `interrupt` nativo — o turno fica suspenso e
-  retomável, não é um fork manual."
-- "Os testes não gastam token: o LLM é uma porta, nos testes injeto um
-  adaptador scriptado."
+Demonstra o esqueleto de avaliação contínua (LLM-as-judge), pronto para rodar
+no CI e alimentar o Langfuse com um score por conversa.

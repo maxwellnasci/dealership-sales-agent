@@ -3,10 +3,11 @@
 Padrão ports & adapters: o grafo depende de `LLMClient` (abstrato), não de uma
 SDK concreta. Em produção/demo usamos `OpenAILLMClient` (LangChain +
 `with_structured_output`/`bind_tools`). Nos testes usamos um cliente scriptado
-e determinístico (tests/conftest.py) — pytest roda rápido, de graça e sem rede.
+e determinístico (tests/conftest.py) — pytest roda rápido, sem custo e sem rede.
 
-Essa é a decisão que concilia "o CTO quer VER tool-calling e structured output
-do LangChain" com "os testes não podem depender de um LLM não-determinístico".
+Assim o caminho de produção mantém o uso idiomático de structured output e
+tool calling do LangChain, sem acoplar a suíte de testes a um LLM
+não-determinístico.
 """
 
 from __future__ import annotations
