@@ -100,4 +100,4 @@ contexto; o vendedor responde via `POST /resume`.
 
 ## Licença
 
-MIT.
+Distribuído sob a licença **MIT** — veja [`LICENSE`](LICENSE) para o texto completo.
