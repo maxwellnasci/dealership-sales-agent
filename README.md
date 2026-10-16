@@ -1,5 +1,7 @@
 # Dealership Sales Agent
 
+[![CI](https://github.com/maxwellnasci/dealership-sales-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/maxwellnasci/dealership-sales-agent/actions/workflows/ci.yml)
+
 Agente de vendas para **revendas de veículos**, atendendo leads por WhatsApp.
 Construído com **LangGraph** como uma máquina de estados de qualificação de
 lead — conversas naturais, confiáveis, com custo e qualidade mensuráveis.
