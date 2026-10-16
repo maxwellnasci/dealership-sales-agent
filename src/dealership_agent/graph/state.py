@@ -56,11 +56,21 @@ class GraphState(TypedDict, total=False):
 def initial_state(message: str, phone: str) -> dict:
     """Estado de entrada para uma mensagem nova do lead.
 
-    Só injeta a mensagem do usuário e o telefone. `messages` e `lead_profile`
-    vêm do checkpoint (reducers acumulam); os demais campos são recomputados
-    pelo turno, então nem precisam ser zerados explicitamente aqui.
+    `messages` e `lead_profile` ACUMULAM via reducer (memória real entre
+    mensagens de WhatsApp). Todos os demais campos são "por turno" e são
+    zerados EXPLICITAMENTE aqui: como o checkpointer ressuscita o estado
+    inteiro por `thread_id`, um `financing_quote`/`test_drive_slot`/
+    `guardrail_flags` de um turno anterior vazaria para um turno seguinte que
+    não os recompute (ex: o lead volta dias depois só pra dizer "oi" e veria
+    uma simulação/agendamento velho). Resetar na entrada elimina esse vazamento.
     """
     return {
         "messages": [{"role": "user", "content": message}],
         "lead_profile": LeadProfile(phone=phone),
+        "route": None,
+        "retrieved_vehicles": [],
+        "financing_quote": None,
+        "test_drive_slot": None,
+        "final_reply": None,
+        "guardrail_flags": [],
     }

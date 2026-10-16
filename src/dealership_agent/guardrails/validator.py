@@ -15,15 +15,24 @@ import re
 
 from dealership_agent.schemas.tools import FinancingQuote, TestDriveSlot, Vehicle
 
-# Captura valores em reais: "R$ 89.900", "89900", "1.234,56", "89.900,00".
-_MONEY_RE = re.compile(r"R?\$?\s*\d{1,3}(?:[.\s]\d{3})*(?:,\d{2})?|\b\d{4,}\b")
+# Valores monetários. Alternativas ORDENADAS para não se sombrearem (o bug do
+# regex antigo: `\d{1,3}...` casava "550" em "55000" e a alternativa de inteiro
+# cru nunca era alcançada, deixando "55000" passar). Agora: primeiro com R$,
+# depois com separador de milhar, por fim o inteiro cru de 4+ dígitos.
+_MONEY_RE = re.compile(
+    r"R\$\s*\d[\d.\s]*(?:,\d{2})?"
+    r"|\b\d{1,3}(?:\.\d{3})+(?:,\d{2})?\b"
+    r"|\b\d{4,}(?:,\d{2})?\b"
+)
+# "55 mil", "140 mil", "1,5 mil" — capturado à parte; o sufixo multiplica ×1000.
+_MIL_RE = re.compile(r"\d+(?:[.,]\d+)?\s*mil\b", re.IGNORECASE)
 
 # Captura datas "DD/MM" (com ou sem ano), para checar ambiguidade de agenda.
 _DATE_RE = re.compile(r"\b(\d{2})/(\d{2})(?:/\d{2,4})?\b")
 
 
 def _normalize(token: str) -> float | None:
-    cleaned = token.replace("R$", "").replace(" ", "").strip()
+    cleaned = token.replace("R$", "").replace("mil", "").replace(" ", "").strip()
     if not cleaned:
         return None
     # Formato BR: ponto = milhar, vírgula = decimal.
@@ -32,6 +41,19 @@ def _normalize(token: str) -> float | None:
         return float(cleaned)
     except ValueError:
         return None
+
+
+def _is_vehicle_year(raw: str, value: float) -> bool:
+    """Inteiro cru de 4 dígitos em 1990-2099 (sem R$ nem separador) é ano de
+    modelo (ex: 2022), não um preço — evita falso positivo do guardrail."""
+    digits = re.sub(r"\D", "", raw)
+    return (
+        "R$" not in raw
+        and "." not in raw
+        and "," not in raw
+        and len(digits) == 4
+        and 1990 <= value <= 2099
+    )
 
 
 def allowed_amounts(
@@ -70,13 +92,25 @@ def validate_reply(
     # Quilometragem não é preço: remove "<n> km" antes de procurar valores.
     scan_text = re.sub(r"\d[\d.\s]*km", " ", reply, flags=re.IGNORECASE)
 
+    def _check(raw: str, value: float) -> None:
+        if not any(abs(value - a) <= 1 for a in allowed):
+            flags.append(f"unverified_amount:{raw.strip()}")
+
+    # "N mil" -> N*1000, capturado e removido antes para não recontar o número.
+    for m in _MIL_RE.finditer(scan_text):
+        base_val = _normalize(m.group(0))
+        if base_val is not None:
+            _check(m.group(0), base_val * 1000)
+    scan_text = _MIL_RE.sub(" ", scan_text)
+
     for match in _MONEY_RE.findall(scan_text):
         value = _normalize(match)
         if value is None or value < 1000:
-            # Ignora anos, quantidades pequenas, prazos (ex: "48 meses").
+            # Ignora quantidades pequenas e prazos (ex: "48 meses").
             continue
-        if not any(abs(value - a) <= 1 for a in allowed):
-            flags.append(f"unverified_amount:{match.strip()}")
+        if _is_vehicle_year(match, value):
+            continue  # ano de modelo, não preço
+        _check(match, value)
 
     if slot is not None:
         allowed_date = f"{slot.starts_at:%d/%m}"

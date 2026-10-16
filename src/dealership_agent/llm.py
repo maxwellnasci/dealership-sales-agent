@@ -51,6 +51,19 @@ Classifique a ÚLTIMA mensagem do cliente em uma intenção. Regras:
 Escolha a intenção mais específica aplicável."""
 
 
+def _lead_summary(lead: LeadProfile) -> str:
+    """Resumo compacto do que já se sabe do lead, para dar contexto ao LLM.
+
+    Deixa o roteador e o extrator cientes do histórico: ex., uma mensagem curta
+    como "e o financiamento?" é ambígua sozinha, mas clara sabendo que o lead
+    já escolheu um SUV. Também ajuda o extrator a só complementar o perfil.
+    """
+    known = {k: v for k, v in lead.model_dump().items() if v is not None and k != "phone"}
+    if not known:
+        return "nenhuma informação coletada ainda."
+    return ", ".join(f"{k}={v}" for k, v in known.items())
+
+
 class OpenAILLMClient(LLMClient):
     """Adaptador real sobre um endpoint OpenAI-compatível (via LangChain)."""
 
@@ -66,7 +79,8 @@ class OpenAILLMClient(LLMClient):
 
     async def decide_route(self, messages: list[BaseMessage], lead: LeadProfile) -> RouteDecision:
         structured = self._model.with_structured_output(RouteDecision)
-        prompt: list[BaseMessage] = [SystemMessage(_ROUTER_SYSTEM), *messages]
+        router_sys = f"{_ROUTER_SYSTEM}\n\nPerfil já conhecido do lead: {_lead_summary(lead)}"
+        prompt: list[BaseMessage] = [SystemMessage(router_sys), *messages]
         try:
             return await structured.ainvoke(prompt)
         except Exception:
@@ -81,7 +95,9 @@ class OpenAILLMClient(LLMClient):
                 "procura. Não invente nada; deixe campos ausentes como null. Atenção: "
                 "`name` é o PRIMEIRO NOME DA PESSOA (ex: 'Ana'), nunca um modelo de carro. "
                 "Marca do carro vai em `desired_make` (ex: Toyota) e o modelo em "
-                "`desired_model` (ex: 'Corolla' -> desired_model='Corolla')."
+                "`desired_model` (ex: 'Corolla' -> desired_model='Corolla').\n"
+                "Contexto já coletado (use só para desambiguar, NÃO repita): "
+                f"{_lead_summary(current)}"
             ),
             HumanMessage(message),
         ]

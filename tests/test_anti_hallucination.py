@@ -41,6 +41,28 @@ def test_validator_ignora_ano_e_prazo():
     assert validate_reply(reply, [_VEHICLE], None) == []
 
 
+def test_validator_barra_inteiro_cru_sem_separador():
+    # Regressão do branch shadowing: "55000" (sem ponto) tem que ser pego.
+    flags = validate_reply("Faço por 55000 à vista.", [_VEHICLE], None)
+    assert any(f.startswith("unverified_amount") for f in flags)
+
+
+def test_validator_barra_valor_em_mil():
+    # "55 mil" = 55000, valor inventado -> barrado.
+    flags = validate_reply("Consigo uns 55 mil nesse.", [_VEHICLE], None)
+    assert any("unverified_amount" in f for f in flags)
+
+
+def test_validator_aprova_preco_cru_valido():
+    # O preço real escrito sem separador não pode gerar falso positivo.
+    assert validate_reply("Sai por 129900.", [_VEHICLE], None) == []
+
+
+def test_validator_nao_confunde_ano_recente_com_preco():
+    reply = "Tenho opções 2019, 2022 e 2024 em estoque."
+    assert validate_reply(reply, [_VEHICLE], None) == []
+
+
 _SLOT = TestDriveSlot(
     slot_id="V001-202610190900", vehicle_id="V001", vehicle_label="Toyota Corolla 2022",
     starts_at=datetime(2026, 10, 19, 9, 0), confirmed=True,

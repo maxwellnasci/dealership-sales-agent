@@ -56,9 +56,25 @@ class LeadProfile(BaseModel):
 
     def merged_with(self, other: LeadProfile) -> LeadProfile:
         """Retorna um novo perfil preferindo os campos preenchidos de `other`
-        sobre os atuais, sem jamais sobrescrever um valor existente por None."""
+        sobre os atuais, sem jamais sobrescrever um valor existente por None.
+
+        Exceção (mudança de ideia): se `other` traz um `desired_model` DIFERENTE
+        do atual e NÃO traz uma marca nova, a marca antiga é invalidada — senão
+        um lead que troca de "Corolla" (Toyota) para "Civic" ficaria com o par
+        incoerente make=Toyota + model=Civic.
+        """
         base = self.model_dump()
-        for key, value in other.model_dump().items():
+        other_data = other.model_dump()
+
+        new_model = other_data.get("desired_model")
+        if (
+            new_model is not None
+            and new_model != base.get("desired_model")
+            and other_data.get("desired_make") is None
+        ):
+            base["desired_make"] = None
+
+        for key, value in other_data.items():
             if value is not None:
                 base[key] = value
         return LeadProfile(**base)

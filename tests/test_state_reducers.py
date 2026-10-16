@@ -31,3 +31,25 @@ def test_merge_nunca_apaga_com_none_explicito():
     merged = merge_lead_profile(old, LeadProfile())  # tudo None
     assert merged.name == "Ana"
     assert merged.desired_make == "Toyota"
+
+
+def test_troca_de_modelo_invalida_marca_antiga():
+    # Lead muda de ideia: Corolla (Toyota) -> Civic, sem citar marca nova.
+    old = LeadProfile(desired_make="Toyota", desired_model="Corolla")
+    merged = merge_lead_profile(old, LeadProfile(desired_model="Civic"))
+    assert merged.desired_model == "Civic"
+    assert merged.desired_make is None  # Toyota não gruda no Civic
+
+
+def test_troca_de_modelo_com_nova_marca_usa_a_nova():
+    old = LeadProfile(desired_make="Toyota", desired_model="Corolla")
+    merged = merge_lead_profile(old, LeadProfile(desired_make="Honda", desired_model="Civic"))
+    assert merged.desired_make == "Honda"
+    assert merged.desired_model == "Civic"
+
+
+def test_mesmo_modelo_mantem_marca():
+    # Repetir o mesmo modelo não deve zerar a marca já conhecida.
+    old = LeadProfile(desired_make="Toyota", desired_model="Corolla")
+    merged = merge_lead_profile(old, LeadProfile(desired_model="Corolla"))
+    assert merged.desired_make == "Toyota"
