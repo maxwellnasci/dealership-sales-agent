@@ -9,7 +9,15 @@ venv/
 
 # Env e segredos
 .env
+.env.*
+!.env.example
 *.local
 
-# Dados gerados
+# Dados gerados, logs e dumps
 data/checkpoints.sqlite*
+*.log
+*.sql
+*.dump
+
+# Ferramentas locais / IDEs
+.claude/
