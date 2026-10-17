@@ -21,6 +21,13 @@ class Settings(BaseSettings):
     llm_model: str = "gpt-4o-mini"
     llm_temperature: float = 0.2
 
+    # --- Roteador Jev (TypeSafe AI via OpenRouter, opcional) --------------
+    # Sem `openrouter_api_key`, o roteador Jev delega tudo ao roteador
+    # clássico (fallback padrão). Com a chave, classifica via endpoint de
+    # decisões do OpenRouter. Ver graph/router_jev.py.
+    openrouter_api_key: str | None = None
+    jev_model: str = "typesafe/jev-1.14"
+
     # --- Checkpointing / memória -----------------------------------------
     # memory  -> InMemorySaver (testes)
     # sqlite  -> AsyncSqliteSaver em arquivo (demo auto-contida, sem Postgres)
@@ -46,6 +53,11 @@ class Settings(BaseSettings):
     def llm_configured(self) -> bool:
         """True quando há credencial para falar com um LLM real."""
         return bool(self.openai_api_key)
+
+    @property
+    def jev_configured(self) -> bool:
+        """True quando o roteador Jev (OpenRouter) pode ser usado."""
+        return bool(self.openrouter_api_key)
 
 
 settings = Settings()
