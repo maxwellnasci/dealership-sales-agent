@@ -44,18 +44,22 @@ JEV_LABEL_TO_INTENT: dict[str, Intent] = {
 
 # Rótulos canônicos pedidos ao Jev (1:1 com os destinos do supervisor).
 JEV_LABELS: tuple[str, ...] = (
+    "qualify",
     "search_inventory",
     "financing",
     "schedule_test_drive",
     "handoff_human",
+    "small_talk",
 )
 
 # Critérios da pergunta `choice`: rótulo -> descrição usada pelo Jev.
 JEV_CRITERIA: dict[str, str] = {
+    "qualify": "O lead descreve necessidade, gosto, orçamento ou responde perguntas de descoberta.",
     "search_inventory": "O lead procura veículos no estoque (modelo, categoria, preço, ano).",
     "financing": "O lead pergunta sobre financiamento, entrada, parcelas ou simulação.",
     "schedule_test_drive": "O lead quer agendar ou remarcar um test-drive.",
-    "handoff_human": "O lead pede um vendedor humano, reclama ou foge do escopo do bot.",
+    "handoff_human": "O lead pede um vendedor humano, reclama ou quer negociar preço/desconto.",
+    "small_talk": "Saudações iniciais ou assuntos fora do escopo de compra de veículo.",
 }
 JEV_INSTRUCTIONS = "Classifique a intenção da última mensagem do lead de uma concessionária."
 

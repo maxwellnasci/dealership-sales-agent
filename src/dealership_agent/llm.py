@@ -65,6 +65,16 @@ def _lead_summary(lead: LeadProfile) -> str:
     return ", ".join(f"{k}={v}" for k, v in known.items())
 
 
+class _ClassicRouteFallback:
+    """Delega o fallback do JevRouter para o roteador estruturado clássico."""
+
+    def __init__(self, client: OpenAILLMClient) -> None:
+        self._client = client
+
+    async def decide_route(self, messages: list[BaseMessage], lead: LeadProfile) -> RouteDecision:
+        return await self._client._decide_route_classic(messages, lead)
+
+
 class OpenAILLMClient(LLMClient):
     """Adaptador real sobre um endpoint OpenAI-compatível (via LangChain)."""
 
@@ -78,7 +88,9 @@ class OpenAILLMClient(LLMClient):
             kwargs["base_url"] = settings.openai_base_url
         self._model = ChatOpenAI(**kwargs)
 
-    async def decide_route(self, messages: list[BaseMessage], lead: LeadProfile) -> RouteDecision:
+    async def _decide_route_classic(
+        self, messages: list[BaseMessage], lead: LeadProfile
+    ) -> RouteDecision:
         structured = self._model.with_structured_output(RouteDecision)
         router_sys = f"{_ROUTER_SYSTEM}\n\nPerfil já conhecido do lead: {_lead_summary(lead)}"
         prompt: list[BaseMessage] = [SystemMessage(router_sys), *messages]
@@ -87,6 +99,14 @@ class OpenAILLMClient(LLMClient):
         except Exception:
             # Fallback seguro: na dúvida, continuamos a descoberta.
             return RouteDecision(intent=Intent.QUALIFY, rationale="fallback: erro no roteador")
+
+    async def decide_route(self, messages: list[BaseMessage], lead: LeadProfile) -> RouteDecision:
+        if settings.jev_configured:
+            from dealership_agent.graph.router_jev import JevRouter
+
+            router = JevRouter(fallback=_ClassicRouteFallback(self))
+            return await router.decide_route(messages, lead)
+        return await self._decide_route_classic(messages, lead)
 
     async def extract_lead(self, message: str, current: LeadProfile) -> LeadProfile:
         structured = self._model.with_structured_output(LeadProfile)

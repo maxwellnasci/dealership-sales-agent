@@ -7,7 +7,9 @@ from langchain_core.messages import HumanMessage
 
 from dealership_agent.graph.builder import INTENT_TO_NODE
 from dealership_agent.graph.router_jev import (
+    JEV_CRITERIA,
     JEV_LABEL_TO_INTENT,
+    JEV_LABELS,
     JevRouteDecision,
     JevRouter,
     parse_jev_payload,
@@ -17,11 +19,24 @@ from dealership_agent.schemas.routing import Intent
 
 
 def test_labels_jev_mapeiam_para_intents_do_grafo():
+    assert set(JEV_LABELS) == {
+        "qualify",
+        "search_inventory",
+        "financing",
+        "schedule_test_drive",
+        "handoff_human",
+        "small_talk",
+    }
+    assert set(JEV_CRITERIA.keys()) == set(JEV_LABELS)
+    assert JEV_LABEL_TO_INTENT["qualify"] is Intent.QUALIFY
     assert JEV_LABEL_TO_INTENT["search_inventory"] is Intent.SEARCH_INVENTORY
     assert JEV_LABEL_TO_INTENT["financing"] is Intent.FINANCING
     assert JEV_LABEL_TO_INTENT["schedule_test_drive"] is Intent.SCHEDULE_TEST_DRIVE
     # handoff_human é o nó; a Intent é "handoff" e precisa ter destino no grafo.
     assert JEV_LABEL_TO_INTENT["handoff_human"] is Intent.HANDOFF
+    assert JEV_LABEL_TO_INTENT["small_talk"] is Intent.SMALL_TALK
+    for label in JEV_LABELS:
+        assert JEV_LABEL_TO_INTENT[label].value in INTENT_TO_NODE
     for intent in JEV_LABEL_TO_INTENT.values():
         assert intent.value in INTENT_TO_NODE
 
