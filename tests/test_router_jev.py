@@ -116,3 +116,147 @@ async def test_sucesso_do_jev_retorna_probabilidade(monkeypatch):
     assert decision.source == "jev"
     assert decision.intent is Intent.SEARCH_INVENTORY
     assert decision.probability == pytest.approx(0.93)
+
+
+# --- Caminho HTTP real (`_classify`) com httpx.MockTransport -----------------
+# O request passa pelo httpx de verdade (serialização, headers, status), só o
+# transporte é falso: nenhuma conexão sai da máquina.
+
+
+@pytest.fixture
+def openrouter(monkeypatch):
+    """Intercepta o AsyncClient do httpx; `respond` define a resposta do mock."""
+    import httpx
+
+    calls: dict = {"requests": [], "respond": None}
+    real_client = httpx.AsyncClient
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        calls["requests"].append(request)
+        return calls["respond"](request)
+
+    def _client(**kwargs):
+        calls["timeout"] = kwargs.get("timeout")
+        return real_client(transport=httpx.MockTransport(_handler), **kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncClient", _client)
+    return calls
+
+
+def _decisions_payload(choice: str, probability: float = 0.97) -> dict:
+    return {
+        "answers": {
+            "intent": {
+                "type": "choice",
+                "choice": choice,
+                "probabilities": {choice: probability},
+                "confidence": probability,
+            }
+        },
+        "usage": {"input_tokens": 374, "output_tokens": 55, "cost": 0.000015},
+    }
+
+
+@pytest.mark.asyncio
+async def test_http_monta_request_de_decisao_e_parseia_resposta(openrouter):
+    import json
+
+    import httpx
+
+    from dealership_agent.graph.router_jev import OPENROUTER_DECISIONS_URL
+
+    openrouter["respond"] = lambda req: httpx.Response(200, json=_decisions_payload("financing"))
+    router = JevRouter(api_key="or-key", model="typesafe/jev-test", timeout_s=3.0)
+
+    decision = await router.route_message("Quanto fica a parcela?")
+
+    assert decision.source == "jev"
+    assert decision.intent is Intent.FINANCING
+    assert decision.probability == pytest.approx(0.97)
+    assert (decision.prompt_tokens, decision.completion_tokens) == (374, 55)
+    assert decision.total_tokens == 429
+    assert decision.cost_usd == pytest.approx(0.000015)
+    assert decision.latency_ms >= 0.0
+
+    (req,) = openrouter["requests"]
+    assert req.method == "POST"
+    assert str(req.url) == OPENROUTER_DECISIONS_URL
+    assert req.headers["Authorization"] == "Bearer or-key"
+    assert req.headers["X-Title"] == "dealership-sales-agent"
+    body = json.loads(req.content)
+    assert body["model"] == "typesafe/jev-test"
+    assert body["state"] == "Lead: Quanto fica a parcela?"
+    question = body["questions"]["intent"]
+    assert question["type"] == "choice"
+    assert list(question["criteria"]) == list(JEV_LABELS)
+    # Timeout explícito chega ao cliente HTTP.
+    assert openrouter["timeout"] == 3.0
+
+
+@pytest.mark.asyncio
+async def test_http_historico_vira_state_multilinha(openrouter):
+    import json
+
+    import httpx
+
+    openrouter["respond"] = lambda req: httpx.Response(200, json=_decisions_payload("qualify"))
+    router = JevRouter(api_key="or-key")
+    await router.decide_route(
+        [HumanMessage("Oi"), HumanMessage("Quero um SUV")], LeadProfile()
+    )
+    body = json.loads(openrouter["requests"][0].content)
+    assert body["state"] == "Lead: Oi\nLead: Quero um SUV"
+
+
+@pytest.mark.asyncio
+async def test_http_normaliza_rotulo_handoff(openrouter):
+    import httpx
+
+    payload = _decisions_payload("Handoff-Human")
+    openrouter["respond"] = lambda req: httpx.Response(200, json=payload)
+    decision = await JevRouter(api_key="or-key").route_message("Quero um vendedor")
+    assert decision.source == "jev"
+    assert decision.intent is Intent.HANDOFF
+    assert decision.label == "handoff_human"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "scenario",
+    [
+        "http_500", "http_401", "timeout", "conexao",
+        "rotulo_desconhecido", "sem_answers", "nao_json",
+    ],
+)
+async def test_http_falhas_caem_no_fallback_classico(openrouter, scenario):
+    import httpx
+
+    def _respond(req: httpx.Request) -> httpx.Response:
+        if scenario == "http_500":
+            return httpx.Response(500, json={"error": "upstream"})
+        if scenario == "http_401":
+            return httpx.Response(401, json={"error": "invalid key"})
+        if scenario == "timeout":
+            raise httpx.ReadTimeout("lento demais", request=req)
+        if scenario == "conexao":
+            raise httpx.ConnectError("dns", request=req)
+        if scenario == "rotulo_desconhecido":
+            return httpx.Response(200, json=_decisions_payload("comprar_moto"))
+        if scenario == "sem_answers":
+            return httpx.Response(200, json={"usage": {}})
+        return httpx.Response(200, text="<html>bad gateway</html>")
+
+    openrouter["respond"] = _respond
+    decision = await JevRouter(api_key="or-key").route_message("Consigo financiar?")
+
+    assert openrouter["requests"], "deveria ter tentado o Jev antes do fallback"
+    assert decision.source == "fallback-classico"
+    assert decision.intent is Intent.FINANCING
+
+
+def test_get_router_usa_modelo_do_settings(monkeypatch):
+    from dealership_agent.config import settings
+    from dealership_agent.graph.router_jev import get_router
+
+    monkeypatch.setattr(settings, "jev_model", "typesafe/jev-9")
+    assert get_router()._model == "typesafe/jev-9"
