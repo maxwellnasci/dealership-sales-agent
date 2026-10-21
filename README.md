@@ -2,7 +2,8 @@
 
 [![CI](https://github.com/maxwellnasci/dealership-sales-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/maxwellnasci/dealership-sales-agent/actions/workflows/ci.yml)
 ![Python 3.11 | 3.12](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
-![Tests](https://img.shields.io/badge/pytest-46%20passed-brightgreen)
+![Tests](https://img.shields.io/badge/pytest-159%20passed%20(100%25)-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-97%25%20(gate%2090%25)-brightgreen)
 ![License: MIT](https://img.shields.io/badge/license-MIT-lightgrey)
 
 Agente de vendas para **revendas de veículos**, atendendo leads por WhatsApp.
@@ -45,6 +46,27 @@ WhatsApp ─► supervisor (System-1 Jev 1.14 / structured output fallback)
 
 Detalhes, *unit economics* e justificativas em [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
+## Defesa anti-alucinação cross-entity
+
+Não basta o número **existir** no estado: ele tem de ser verdade **sobre o
+veículo citado**. Antes de enviar, `guardrails/validator.py` fatia a resposta
+do LLM por frase e por menção de modelo e amarra cada fato ao seu dono:
+
+| O LLM escreveu | Fatos do turno | Resultado |
+|---|---|---|
+| "O Corolla sai por R$ 89.900,00" | Corolla R$ 129.900 · Polo R$ 89.900 | ❌ `unverified_amount` — preço do Polo colado no Corolla |
+| "Corolla 2023" | Corolla é 2022 | ❌ `unverified_year` |
+| "Corolla com apenas 8.000 km" | Corolla tem 38.000 km | ❌ `unverified_mileage` |
+| "Também temos um Civic…" | Civic não foi buscado | ❌ `unverified_vehicle` |
+| "Test-drive 19/10 às 16h" | Slot reservado: 19/10 às 09h00 | ❌ `unverified_time` (também data, dia da semana e veículo do slot) |
+| "O Corolla 2022, 38 mil km, sai por R$ 129,9 mil" | — | ✅ aprovado |
+
+Qualquer flag faz o nó de síntese cair no **rascunho determinístico**, montado
+só com fatos das tools. Pior caso: resposta mais seca, nunca um fato mentiroso.
+A suíte de regressão prova os dois lados: os bypasses acima falham no
+validador antigo, e os rascunhos de **todos** os veículos do catálogo passam
+sem falso positivo.
+
 ## Pilares (e onde ver no código)
 
 | Pilar | Implementação |
@@ -52,11 +74,11 @@ Detalhes, *unit economics* e justificativas em [`docs/ARCHITECTURE.md`](docs/ARC
 | **StateGraph / nós / arestas condicionais** | `graph/builder.py` |
 | **Roteamento System-1 (Jev 1.14)** | `graph/router_jev.py` — `typesafe/jev-1.14` (`/api/alpha/decisions`) + probabilidade calibrada e fallback automático |
 | **Reducers de estado** | `graph/state.py` — `add_messages` + `merge_lead_profile` (merge incremental com detecção de mudança de modelo) |
-| **Checkpointing entre mensagens** | `persistence/checkpointer.py` — memory/sqlite/postgres, `thread_id` = telefone |
+| **Checkpointing entre mensagens** | `persistence/checkpointer.py` — memory/sqlite/postgres, `thread_id` = telefone, serializer com allowlist explícita de tipos |
 | **Human-in-the-loop (interrupt)** | `graph/nodes/handoff_human.py` — `interrupt()` + `Command(resume=...)` |
 | **Tool calling com retry** | `tools/inventory.py` (tenacity); `tools/financing.py`, `tools/calendar.py` |
 | **Anti-alucinação em 3 camadas** | `schemas/*` (estrutural) + `_PERSONA` + `guardrails/validator.py` (preço/ano/km amarrados ao veículo citado; data+hora do slot) |
-| **Suíte determinística (146 testes, 96% de cobertura)** | `tests/` — tudo `async`, perfis/tools tipados, zero rede e zero API key |
+| **Suíte determinística (159 testes, 97% de cobertura, gate de 90% no CI)** | `tests/` — tudo `async`, perfis/tools tipados, zero rede e zero API key |
 | **Observabilidade (Langfuse)** | `observability/tracing.py` — custo + score por conversa |
 | **Avaliação (LLM-as-judge)** | `llm.py::judge` + `tests/test_llm_judge.py` |
 
@@ -73,7 +95,7 @@ python scripts/demo.py
 Sem `OPENAI_API_KEY`, roda em **fallback determinístico**. Com chave (qualquer
 endpoint OpenAI-compatível), as respostas ficam naturais.
 
-### 2. Testes (146 testes determinísticos)
+### 2. Testes (159 testes determinísticos)
 
 ```bash
 pytest           # rápido, sem rede, sem API key — usa LLM scriptado
@@ -124,8 +146,9 @@ python scripts/benchmark_router.py
   suíte de testes determinística, grátis e sem rede.
 - **Anti-alucinação em três camadas**: estrutural (preços só vêm de tools
   tipadas) + persona restritiva sobre rascunho factual + validação do texto
-  final contra os fatos **de cada entidade citada** (`guardrails/validator.py`). Pior caso =
-  resposta mais seca, nunca um preço mentiroso.
+  final contra os fatos **de cada entidade citada** — modelo, ano, km e preço
+  amarrados ao mesmo veículo (`guardrails/validator.py`). Pior caso = resposta
+  mais seca, nunca um fato mentiroso.
 - **Memória = checkpointer por `thread_id`**: trocar SQLite↔Postgres não muda
   uma linha do grafo.
 

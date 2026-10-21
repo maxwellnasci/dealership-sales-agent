@@ -16,6 +16,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from dealership_agent.graph.builder import build_graph
 from dealership_agent.graph.state import initial_state
 from dealership_agent.llm import LLMClient, TemplateLLMClient
+from dealership_agent.persistence.checkpointer import checkpoint_serde
 from dealership_agent.schemas.lead import LeadProfile
 from dealership_agent.schemas.routing import Intent, RouteDecision
 
@@ -50,7 +51,7 @@ def make_graph():
     """Fábrica: recebe um LLMClient e devolve um grafo compilado novo (memória)."""
 
     def _factory(llm: LLMClient | None = None):
-        return build_graph(InMemorySaver(), llm or TemplateLLMClient())
+        return build_graph(InMemorySaver(serde=checkpoint_serde()), llm or TemplateLLMClient())
 
     return _factory
 

@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 import pytest
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from pydantic import SecretStr
 
 from dealership_agent.config import settings
@@ -49,8 +50,9 @@ async def test_backend_postgres_desembrulha_dsn_e_roda_setup(monkeypatch):
             calls["setup"] = True
 
     @asynccontextmanager
-    async def _from_conn_string(dsn):
+    async def _from_conn_string(dsn, *, serde=None):
         calls["dsn"] = dsn
+        calls["serde"] = serde
         yield _FakeSaver()
 
     monkeypatch.setattr(aio.AsyncPostgresSaver, "from_conn_string", _from_conn_string)
@@ -60,7 +62,9 @@ async def test_backend_postgres_desembrulha_dsn_e_roda_setup(monkeypatch):
     async with checkpointer_context() as saver:
         assert isinstance(saver, _FakeSaver)
     # O driver recebe a string em claro; o SecretStr só protege repr/log.
-    assert calls == {"dsn": "postgresql://u:s3cr3t@db/x", "setup": True}
+    assert calls["dsn"] == "postgresql://u:s3cr3t@db/x"
+    assert calls["setup"] is True
+    assert isinstance(calls["serde"], JsonPlusSerializer)
 
 
 async def test_backend_desconhecido_falha_explicitamente(monkeypatch):
@@ -68,3 +72,48 @@ async def test_backend_desconhecido_falha_explicitamente(monkeypatch):
     with pytest.raises(ValueError, match="redis"):
         async with checkpointer_context():
             pass
+
+
+async def test_serde_reidrata_tipos_de_dominio_sem_aviso(caplog):
+    # Round-trip de cada tipo do estado: volta como o modelo Pydantic, sem o
+    # aviso "Deserializing unregistered type".
+    from datetime import datetime
+
+    from dealership_agent.persistence.checkpointer import checkpoint_serde
+    from dealership_agent.schemas.lead import LeadProfile
+    from dealership_agent.schemas.tools import FinancingQuote, TestDriveSlot, Vehicle
+
+    vehicle = Vehicle(
+        vehicle_id="V001", make="Toyota", model="Corolla", year=2022,
+        price=129900.0, mileage_km=38000, body_type="sedan", color="prata",
+    )
+    values = [
+        LeadProfile(name="Ana", body_type="suv"),
+        vehicle,
+        FinancingQuote(
+            vehicle_id="V001", vehicle_label="Toyota Corolla 2022", price=129900.0,
+            down_payment=25980.0, term_months=48, monthly_rate=0.019,
+            monthly_payment=3200.0, total_paid=179580.0,
+        ),
+        TestDriveSlot(
+            slot_id="s", vehicle_id="V001", vehicle_label="Toyota Corolla 2022",
+            starts_at=datetime(2026, 10, 19, 9, 0),
+        ),
+    ]
+    serde = checkpoint_serde()
+    for value in values:
+        assert serde.loads_typed(serde.dumps_typed(value)) == value
+    assert "unregistered type" not in caplog.text
+
+
+async def test_serde_bloqueia_tipo_fora_da_allowlist(caplog):
+    from pydantic import BaseModel
+
+    from dealership_agent.persistence.checkpointer import checkpoint_serde
+
+    class Intruso(BaseModel):
+        x: int = 1
+
+    serde = checkpoint_serde()
+    restored = serde.loads_typed(serde.dumps_typed(Intruso()))
+    assert not isinstance(restored, Intruso)

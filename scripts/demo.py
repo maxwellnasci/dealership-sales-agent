@@ -14,15 +14,10 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
-import warnings
 from pathlib import Path
 
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
-
-# Aviso de deprecação do serde do LangGraph ao persistir tipos Pydantic no
-# checkpoint — benigno aqui (demo). Em produção, registra-se os módulos.
-warnings.filterwarnings("ignore", message="Deserializing unregistered type")
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -31,6 +26,7 @@ from dealership_agent.config import settings  # noqa: E402
 from dealership_agent.graph.builder import build_graph  # noqa: E402
 from dealership_agent.graph.state import initial_state  # noqa: E402
 from dealership_agent.llm import get_llm_client  # noqa: E402
+from dealership_agent.persistence.checkpointer import checkpoint_serde  # noqa: E402
 
 SEED = json.loads((ROOT / "data" / "seed_conversations.json").read_text(encoding="utf-8"))
 
@@ -67,7 +63,7 @@ async def run_conversation(graph, convo: dict) -> None:
 async def main() -> None:
     mode = "LLM real" if settings.llm_configured else "fallback offline (sem API key)"
     print(f"Modo do LLM: {mode}")
-    graph = build_graph(InMemorySaver(), get_llm_client())
+    graph = build_graph(InMemorySaver(serde=checkpoint_serde()), get_llm_client())
     for convo in SEED:
         await run_conversation(graph, convo)
     print("\n✅ Demo concluída.\n")
