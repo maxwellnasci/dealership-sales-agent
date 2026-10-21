@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from dealership_agent.config import settings
+from dealership_agent.config import secret, settings
 
 
 @asynccontextmanager
@@ -44,7 +44,8 @@ async def checkpointer_context():
     if backend == "postgres":
         from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
-        async with AsyncPostgresSaver.from_conn_string(settings.postgres_dsn) as saver:
+        dsn = secret(settings.postgres_dsn) or ""
+        async with AsyncPostgresSaver.from_conn_string(dsn) as saver:
             await saver.setup()  # cria as tabelas na primeira subida
             yield saver
         return

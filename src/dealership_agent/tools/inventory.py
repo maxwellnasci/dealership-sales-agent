@@ -33,6 +33,11 @@ def _load_catalog() -> list[Vehicle]:
     return [Vehicle(**item) for item in raw]
 
 
+def load_catalog() -> list[Vehicle]:
+    """Catálogo completo (cacheado). Usado pelo guardrail para reconhecer modelos."""
+    return _load_catalog()
+
+
 @retry(
     retry=retry_if_exception_type(InventoryUnavailable),
     stop=stop_after_attempt(3),

@@ -21,3 +21,8 @@ data/checkpoints.sqlite*
 
 # Ferramentas locais / IDEs
 .claude/
+
+# Cobertura
+.coverage
+.coverage.*
+htmlcov/

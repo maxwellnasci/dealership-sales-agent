@@ -32,4 +32,4 @@ jobs:
 
       - name: Pytest
         # A suíte não toca a rede nem precisa de API key: usa o LLM scriptado.
-        run: pytest -q
+        run: pytest -q --cov --cov-report=term-missing

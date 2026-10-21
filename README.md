@@ -55,8 +55,8 @@ Detalhes, *unit economics* e justificativas em [`docs/ARCHITECTURE.md`](docs/ARC
 | **Checkpointing entre mensagens** | `persistence/checkpointer.py` — memory/sqlite/postgres, `thread_id` = telefone |
 | **Human-in-the-loop (interrupt)** | `graph/nodes/handoff_human.py` — `interrupt()` + `Command(resume=...)` |
 | **Tool calling com retry** | `tools/inventory.py` (tenacity); `tools/financing.py`, `tools/calendar.py` |
-| **Anti-alucinação em 3 camadas** | `schemas/*` (estrutural) + `_PERSONA` + `guardrails/validator.py` (regex monetário/`mil`/datas) |
-| **Suíte determinística (46 testes)** | `tests/` — tudo `async`, perfis/tools tipados, zero rede e zero API key |
+| **Anti-alucinação em 3 camadas** | `schemas/*` (estrutural) + `_PERSONA` + `guardrails/validator.py` (preço/ano/km amarrados ao veículo citado; data+hora do slot) |
+| **Suíte determinística (146 testes, 96% de cobertura)** | `tests/` — tudo `async`, perfis/tools tipados, zero rede e zero API key |
 | **Observabilidade (Langfuse)** | `observability/tracing.py` — custo + score por conversa |
 | **Avaliação (LLM-as-judge)** | `llm.py::judge` + `tests/test_llm_judge.py` |
 
@@ -73,10 +73,11 @@ python scripts/demo.py
 Sem `OPENAI_API_KEY`, roda em **fallback determinístico**. Com chave (qualquer
 endpoint OpenAI-compatível), as respostas ficam naturais.
 
-### 2. Testes (46 testes determinísticos)
+### 2. Testes (146 testes determinísticos)
 
 ```bash
 pytest           # rápido, sem rede, sem API key — usa LLM scriptado
+pytest --cov     # com cobertura (gate de 90% no CI)
 ```
 
 ### 3. API (produção-like, com Postgres)
@@ -120,10 +121,10 @@ python scripts/benchmark_router.py
 - **Ports & adapters no LLM** (`llm.py` + `graph/router_jev.py`): o grafo
   depende de uma interface `LLMClient`, não da SDK. Produção usa `JevRouter` +
   `with_structured_output` do LangChain; testes usam um cliente scriptado →
-  suíte de 46 testes determinística, grátis e sem rede.
+  suíte de testes determinística, grátis e sem rede.
 - **Anti-alucinação em três camadas**: estrutural (preços só vêm de tools
   tipadas) + persona restritiva sobre rascunho factual + validação do texto
-  final contra os fatos do estado (`guardrails/validator.py`). Pior caso =
+  final contra os fatos **de cada entidade citada** (`guardrails/validator.py`). Pior caso =
   resposta mais seca, nunca um preço mentiroso.
 - **Memória = checkpointer por `thread_id`**: trocar SQLite↔Postgres não muda
   uma linha do grafo.

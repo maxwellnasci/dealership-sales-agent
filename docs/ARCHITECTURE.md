@@ -75,12 +75,16 @@ mesmo turno fica pausado e retomável.
 2. **Persona restritiva sobre rascunho factual** (`graph/nodes/synthesize_reply.py`):
    `build_draft` monta um texto determinístico a partir do estado e `_PERSONA`
    instrui o modelo a apenas humanizá-lo sem inventar valores ou datas.
-3. **Validação determinística** (`guardrails/validator.py`): antes de enviar,
-   confere que todo valor monetário (incluindo sufixos como `"55 mil"`) e data
-   no texto final correspondem a fatos do estado (ignorando anos de modelo como
-   `2022`). Se o LLM introduziu um valor desconhecido, o nó de síntese cai no
-   **rascunho determinístico** (seguro por construção). Pior caso: resposta mais
-   seca, nunca um preço mentiroso.
+3. **Validação determinística amarrada por entidade** (`guardrails/validator.py`):
+   antes de enviar, o texto final é fatiado a cada menção de modelo ("Corolla",
+   "Polo"). Dentro do segmento de um veículo, preço (incluindo `"55 mil"`), ano
+   e quilometragem têm de ser fatos **daquele** veículo — o preço do Polo colado
+   no Corolla é barrado, mesmo existindo no estado. Texto sem modelo citado só
+   aceita valores conhecidos do turno; modelo do catálogo fora dos fatos do
+   turno vira `unverified_vehicle`. Com test-drive reservado, data, horário,
+   dia da semana e veículo têm de ser os do slot. Qualquer flag faz o nó de
+   síntese cair no **rascunho determinístico** (seguro por construção). Pior
+   caso: resposta mais seca, nunca um fato mentiroso.
 
 ## Roteamento Híbrido System-1 / System-2 (`llm.py` + `graph/router_jev.py`)
 
@@ -98,7 +102,7 @@ geração empática (System 2)** atrás da porta `LLMClient`:
 - **System 2 — Extração e Síntese (`OpenAILLMClient`)**: usa
   `with_structured_output` (extração de `LeadProfile` enriquecida com
   `_lead_summary`) e `ainvoke` (reescrita empática do rascunho factual). Sem
-  credencial, `TemplateLLMClient` mantém a demo offline; nos 46 testes,
+  credencial, `TemplateLLMClient` mantém a demo offline; nos testes,
   injeta-se um cliente scriptado para determinismo total.
 
 ## Unit Economics (FinOps em Escala)

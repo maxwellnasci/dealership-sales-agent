@@ -23,7 +23,7 @@ from typing import Literal
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel, Field
 
-from dealership_agent.config import settings
+from dealership_agent.config import secret, settings
 from dealership_agent.schemas.lead import LeadProfile
 from dealership_agent.schemas.routing import Intent, RouteDecision
 
@@ -140,12 +140,12 @@ class JevRouter:
         model: str = JEV_MODEL,
         url: str = OPENROUTER_DECISIONS_URL,
         fallback=None,
-        timeout_s: float = 5.0,
+        timeout_s: float | None = None,
     ) -> None:
-        self._api_key = api_key if api_key is not None else settings.openrouter_api_key
+        self._api_key = api_key if api_key is not None else secret(settings.openrouter_api_key)
         self._model = model
         self._url = url
-        self._timeout_s = timeout_s
+        self._timeout_s = timeout_s if timeout_s is not None else settings.jev_timeout_s
         if fallback is None:
             from dealership_agent.llm import TemplateLLMClient
 

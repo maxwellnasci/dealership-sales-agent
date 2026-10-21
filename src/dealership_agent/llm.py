@@ -16,7 +16,7 @@ from abc import ABC, abstractmethod
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
-from dealership_agent.config import settings
+from dealership_agent.config import secret, settings
 from dealership_agent.schemas.lead import LeadProfile
 from dealership_agent.schemas.routing import Intent, RouteDecision
 
@@ -81,9 +81,17 @@ class OpenAILLMClient(LLMClient):
     def __init__(self) -> None:
         from langchain_openai import ChatOpenAI
 
-        kwargs: dict = {"model": settings.llm_model, "temperature": settings.llm_temperature}
-        if settings.openai_api_key:
-            kwargs["api_key"] = settings.openai_api_key
+        kwargs: dict = {
+            "model": settings.llm_model,
+            "temperature": settings.llm_temperature,
+            # Timeout por request e retries limitados: um turno nunca fica
+            # pendurado num endpoint lento (o webhook tem SLA de WhatsApp).
+            "timeout": settings.llm_timeout_s,
+            "max_retries": settings.llm_max_retries,
+        }
+        api_key = secret(settings.openai_api_key)
+        if api_key:
+            kwargs["api_key"] = api_key
         if settings.openai_base_url:
             kwargs["base_url"] = settings.openai_base_url
         self._model = ChatOpenAI(**kwargs)
