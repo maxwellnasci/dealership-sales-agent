@@ -67,6 +67,14 @@ class Settings(BaseSettings):
     ldm_backend: str = "auto"
     ldm_weights_path: str = "./data/mxos_ldm_weights.json"
 
+    # --- Agendador do Card Executivo (08h30) ------------------------------
+    # Sobe junto com o LDM (`ldm_enabled`). Sem `seller_webhook_url`, o
+    # despacho é o mock (só loga) — nada sai da máquina.
+    scheduler_db_path: str = "./data/scheduler.sqlite"
+    scheduler_interval_s: float = 60.0
+    seller_webhook_url: SecretStr | None = None
+    seller_whatsapp: str | None = None  # destinatário repassado ao webhook (campo "to")
+
     @property
     def llm_configured(self) -> bool:
         """True quando há credencial para falar com um LLM real."""

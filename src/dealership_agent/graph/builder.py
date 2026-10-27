@@ -36,6 +36,7 @@ from dealership_agent.graph.nodes.supervisor import supervisor_node
 from dealership_agent.graph.nodes.synthesize_reply import synthesize_reply_node
 from dealership_agent.graph.state import GraphState
 from dealership_agent.llm import LLMClient
+from dealership_agent.scheduler.store import CardStore
 from dealership_agent.schemas.lead import LeadProfile
 from dealership_agent.schemas.routing import Intent
 from mxos_ldm.model import LDMPredictor
@@ -66,15 +67,19 @@ def route_after_qualify(state: GraphState) -> str:
 
 
 def build_graph(
-    checkpointer: BaseCheckpointSaver, llm: LLMClient, predictor: LDMPredictor | None = None
+    checkpointer: BaseCheckpointSaver,
+    llm: LLMClient,
+    predictor: LDMPredictor | None = None,
+    card_queue: CardStore | None = None,
 ):
-    """Compila o grafo com o checkpointer, o cliente de LLM e o LDM (opcional)."""
+    """Compila o grafo com checkpointer, LLM, LDM e fila de cards (os dois últimos opcionais)."""
     graph = StateGraph(GraphState)
 
     graph.add_node("supervisor", partial(supervisor_node, llm=llm))
     graph.add_node("qualify_lead", partial(qualify_lead_node, llm=llm))
     graph.add_node(
-        "predict_lead_scoring", partial(predict_lead_scoring_node, predictor=predictor)
+        "predict_lead_scoring",
+        partial(predict_lead_scoring_node, predictor=predictor, card_queue=card_queue),
     )
     graph.add_node("search_inventory", partial(search_inventory_node, llm=llm))
     graph.add_node("schedule_test_drive", partial(schedule_test_drive_node, llm=llm))

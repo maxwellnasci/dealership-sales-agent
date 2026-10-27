@@ -11,18 +11,27 @@ Rodar:  uvicorn dealership_agent.main:app --reload
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from langgraph.types import Command
 from pydantic import BaseModel
 
-from dealership_agent.config import settings
+from dealership_agent.config import secret, settings
 from dealership_agent.graph.builder import build_graph
 from dealership_agent.graph.state import initial_state
 from dealership_agent.llm import get_llm_client
 from dealership_agent.observability.tracing import get_langfuse_handler
 from dealership_agent.persistence.checkpointer import checkpointer_context
+from dealership_agent.scheduler import (
+    CardDispatcher,
+    CardStore,
+    Notifier,
+    RecordingNotifier,
+    WebhookNotifier,
+)
 from mxos_ldm.data_engine import generate_dataset
 from mxos_ldm.model import LDMPredictor
 from mxos_ldm.schemas import VehicleAppraisalInput
@@ -60,11 +69,36 @@ def build_ldm_predictor() -> LDMPredictor | None:
     return predictor
 
 
+def build_notifier() -> Notifier:
+    url = secret(settings.seller_webhook_url)
+    if url:
+        return WebhookNotifier(url, recipient=settings.seller_whatsapp)
+    return RecordingNotifier()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with checkpointer_context() as checkpointer:
-        app.state.graph = build_graph(checkpointer, get_llm_client(), build_ldm_predictor())
-        yield
+    predictor = build_ldm_predictor()
+    card_queue: CardStore | None = None
+    worker: asyncio.Task | None = None
+    if predictor is not None:
+        card_queue = await CardStore.open(settings.scheduler_db_path)
+        dispatcher = CardDispatcher(
+            card_queue, build_notifier(), interval_s=settings.scheduler_interval_s
+        )
+        worker = asyncio.create_task(dispatcher.run_forever(), name="card-dispatcher")
+    app.state.card_queue = card_queue
+    try:
+        async with checkpointer_context() as checkpointer:
+            app.state.graph = build_graph(checkpointer, get_llm_client(), predictor, card_queue)
+            yield
+    finally:
+        if worker is not None:
+            worker.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await worker
+        if card_queue is not None:
+            await card_queue.close()
 
 
 app = FastAPI(title="Dealership Sales Agent", lifespan=lifespan)

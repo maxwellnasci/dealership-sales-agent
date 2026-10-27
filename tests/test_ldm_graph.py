@@ -157,8 +157,9 @@ async def test_no_usa_interesse_do_perfil(predictor):
 
 
 @pytest.fixture
-def ldm_client(monkeypatch, predictor):
+def ldm_client(monkeypatch, predictor, tmp_path):
     monkeypatch.setattr(settings, "checkpoint_backend", "memory")
+    monkeypatch.setattr(settings, "scheduler_db_path", str(tmp_path / "scheduler.sqlite"))
     monkeypatch.setattr(main, "get_llm_client", TemplateLLMClient)
     monkeypatch.setattr(main, "get_langfuse_handler", lambda: None)
     monkeypatch.setattr(main, "build_ldm_predictor", lambda: predictor)

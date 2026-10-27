@@ -15,6 +15,7 @@ venv/
 
 # Dados gerados, logs e dumps
 data/checkpoints.sqlite*
+data/scheduler.sqlite*
 *.log
 *.sql
 *.dump

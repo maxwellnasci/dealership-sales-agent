@@ -79,7 +79,7 @@ sem falso positivo.
 | **Tool calling com retry** | `tools/inventory.py` (tenacity); `tools/financing.py`, `tools/calendar.py` |
 | **Anti-alucinação em 3 camadas** | `schemas/*` (estrutural) + `_PERSONA` + `guardrails/validator.py` (preço/ano/km amarrados ao veículo citado; data+hora do slot) |
 | **Scoring preditivo (mxos_ldm)** | `graph/nodes/predict_lead_scoring.py` + `src/mxos_ldm/` — probabilidade de fechamento, giro do carro da troca, teto de avaliação (margem líquida 12%) e Card Executivo das 08h30; fail-closed sem FIPE |
-| **Suíte determinística (275 testes, 98% de cobertura, gate de 90% no CI)** | `tests/` — tudo `async`, perfis/tools tipados, zero rede e zero API key |
+| **Suíte determinística (332 testes, 98% de cobertura, gate de 90% no CI)** | `tests/` — tudo `async`, perfis/tools tipados, zero rede e zero API key |
 | **Observabilidade (Langfuse)** | `observability/tracing.py` — custo + score por conversa |
 | **Avaliação (LLM-as-judge)** | `llm.py::judge` + `tests/test_llm_judge.py` |
 
@@ -96,7 +96,7 @@ python scripts/demo.py
 Sem `OPENAI_API_KEY`, roda em **fallback determinístico**. Com chave (qualquer
 endpoint OpenAI-compatível), as respostas ficam naturais.
 
-### 2. Testes (275 testes determinísticos)
+### 2. Testes (332 testes determinísticos)
 
 ```bash
 pytest           # rápido, sem rede, sem API key — usa LLM scriptado
@@ -146,7 +146,11 @@ oficial — nunca extraída pelo LLM):
 - **pesos de liquidez da Matriz de Curitiba** (`data/mxos_ldm_weights.json`,
   formato em `mxos_ldm/weights.py`): km/ano > 15 mil e faixas de entrada
   < 20% / > 40%. Sem o arquivo, os pesos são neutros;
-- **Card Executivo** em `seller_briefing_card`, agendado para as 08h30.
+- **Card Executivo** em `seller_briefing_card`, entregue às 08h30 (America/Sao_Paulo)
+  pelo agendador em `scheduler/`: fila durável em SQLite (`PENDING → SENT | FAILED`),
+  worker de 1 em 1 minuto no lifespan da API, retry exponencial (3 tentativas) e
+  recuperação após restart (card preso no envio volta à fila — *at-least-once*).
+  Sem `SELLER_WEBHOOK_URL`, o despacho é um mock que só loga.
 
 Tudo persiste no checkpoint (tipos na allowlist) e **nada disso chega à
 resposta do lead**. FIPE nula/NaN/zero: 422 na API e card BLOQUEADO no grafo.

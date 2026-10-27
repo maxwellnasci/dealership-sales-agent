@@ -9,18 +9,27 @@ Os números ficam em `ldm_prediction`/`seller_briefing_card` e NUNCA vão para a
 resposta do lead — são informação interna do vendedor.
 
 Fail-closed: FIPE nula/inválida -> `ldm_prediction=None` e card BLOQUEADO.
+
+Com `card_queue`, o card (inclusive o bloqueado, que pede ação do vendedor)
+entra na fila durável do agendador para entrega às 08h30. Falha ao enfileirar
+não derruba a resposta ao lead: é logada e o card continua no checkpoint.
 """
 
 from __future__ import annotations
 
+import logging
+
 from pydantic import BaseModel, ValidationError
 
 from dealership_agent.graph.state import GraphState
+from dealership_agent.scheduler.store import CardStore
 from dealership_agent.schemas.lead import LeadProfile
 from dealership_agent.tools.financing import DEFAULT_DOWN_PAYMENT_PCT
 from mxos_ldm.model import LDMPredictor
 from mxos_ldm.sales_bridge import build_seller_card
 from mxos_ldm.schemas import FipeIndisponivelError
+
+logger = logging.getLogger(__name__)
 
 
 def _interesse(lead: LeadProfile) -> str | None:
@@ -29,7 +38,7 @@ def _interesse(lead: LeadProfile) -> str | None:
 
 
 async def predict_lead_scoring_node(
-    state: GraphState, *, predictor: LDMPredictor | None
+    state: GraphState, *, predictor: LDMPredictor | None, card_queue: CardStore | None = None
 ) -> dict:
     vehicle = state.get("ldm_vehicle_input")
     if predictor is None or vehicle is None:
@@ -59,4 +68,9 @@ async def predict_lead_scoring_node(
             "ldm_prediction": prediction,
         }
     )
+    if card_queue is not None:
+        try:
+            await card_queue.enqueue(card)
+        except Exception:
+            logger.exception("falha ao enfileirar card do lead %s", card.lead_id)
     return {"ldm_prediction": prediction, "seller_briefing_card": card}
