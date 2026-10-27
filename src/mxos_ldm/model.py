@@ -10,9 +10,15 @@ Dois modelos aprendidos + uma conta determinística:
      em `avaliacao_fipe_recomendada()`, alimentada pelo giro previsto. Número
      de dinheiro sai de fórmula auditável, não de caixa-preta.
 
-Por cima dos modelos aprendidos entram os pesos de liquidez da Matriz de
-Curitiba (`weights.py`): multiplicadores de km/ano e de faixa de entrada sobre
-a probabilidade e o giro — o teto de avaliação já sai do giro ajustado.
+Por cima dos modelos aprendidos entram os pesos da Matriz de Curitiba
+(`weights.py`, JSON do Antigravity), cada um com a semântica que tem lá:
+
+  - km/ano -> fator φ do modelo (top 10): giro = giro_base / φ, a mesma
+    relação dias = D0 / φ do motor determinístico. O teto de avaliação já sai
+    do giro ajustado.
+  - faixa de entrada -> `credit_approval_prob` pelo spline de crédito, exposta
+    à parte. NÃO multiplica a probabilidade de fechamento: a entrada já é
+    feature do classificador, e multiplicar contaria o efeito duas vezes.
 
 Backends: "xgboost", "sklearn" (HistGradientBoosting), "tabpfn" (opcional,
 `pip install tabpfn`) ou "auto" (xgboost se instalado, senão sklearn).
@@ -44,7 +50,12 @@ from mxos_ldm.schemas import (
     PredictionOutput,
     VehicleAppraisalInput,
 )
-from mxos_ldm.weights import LiquidityWeights
+from mxos_ldm.weights import (
+    CuritibaWeights,
+    credit_approval,
+    faixa_entrada,
+    km_liquidity_factor,
+)
 
 Backend = Literal["auto", "xgboost", "sklearn", "tabpfn"]
 
@@ -147,7 +158,7 @@ class LDMPredictor:
         seed: int = 42,
         margem_alvo: float = MARGEM_LIQUIDA_ALVO,
         custos: CustosRevenda = CustosRevenda(),  # noqa: B008
-        weights: LiquidityWeights = LiquidityWeights(),  # noqa: B008
+        weights: CuritibaWeights | None = None,
     ) -> None:
         self.backend, self._clf, self._reg = _build_estimators(backend, seed)
         self.seed = seed
@@ -207,13 +218,10 @@ class LDMPredictor:
         )
         x_reg = x_clf[:, : len(FEATURES_GIRO)]
 
-        km_ano = vehicle.km_rodados / max(1, ANO_REFERENCIA - vehicle.ano_modelo)
-        mult_prob, mult_giro, ajustes = self.weights.multiplicadores(
-            km_ano, lead.valor_entrada_pct
-        )
-        proba = float(self._clf.predict_proba(x_clf)[0, 1]) * mult_prob
+        phi, credito, ajustes = self._pesos_curitiba(lead, vehicle)
+        proba = float(self._clf.predict_proba(x_clf)[0, 1])
         giro_base = float(np.expm1(self._reg.predict(x_reg)[0]))
-        giro = max(1, int(round(giro_base * mult_giro)))
+        giro = max(1, int(round(giro_base / (phi or 1.0))))
         teto_pct = avaliacao_fipe_recomendada(giro, self.margem_alvo, self.custos)
 
         return PredictionOutput(
@@ -224,9 +232,31 @@ class LDMPredictor:
             margem_liquida_alvo=self.margem_alvo,
             gap_pedido_pp=round(vehicle.percentual_fipe_pedido * 100.0 - teto_pct, 2),
             backend=self.backend,
-            versao_pesos=self.weights.versao,
+            versao_pesos=self.weights.versao if self.weights else "neutro",
             ajustes_liquidez=ajustes,
+            km_liquidity_factor=phi,
+            credit_approval_prob=credito,
         )
+
+    def _pesos_curitiba(
+        self, lead: LeadData, vehicle: VehicleAppraisalInput
+    ) -> tuple[float | None, float | None, list[str]]:
+        """(φ de km, prob. de aprovação de crédito, rótulos) — tudo None sem pesos."""
+        if self.weights is None:
+            return None, None, []
+        ajustes: list[str] = []
+        phi = None
+        if vehicle.modelo in self.weights.models_curitiba_top10:
+            idade = ANO_REFERENCIA - vehicle.ano_modelo
+            km_ano, phi = km_liquidity_factor(
+                self.weights, vehicle.modelo, vehicle.km_rodados, idade
+            )
+            ajustes.append(f"km/ano {km_ano:,.0f} φ={phi:.3f}".replace(",", "."))
+        elif vehicle.modelo is not None:
+            ajustes.append(f"{vehicle.modelo} fora do top 10 (sem φ de km)")
+        credito, _ = credit_approval(self.weights, lead.valor_entrada_pct)
+        ajustes.append(faixa_entrada(self.weights, lead.valor_entrada_pct))
+        return phi, credito, ajustes
 
     def predict_raw(
         self, lead: Mapping[str, Any], vehicle: Mapping[str, Any]

@@ -183,15 +183,14 @@ def test_webhook_trade_in_sem_fipe_recusado_na_borda(ldm_client):
     assert resp.status_code == 422
 
 
-def test_build_ldm_predictor(monkeypatch, tmp_path):
+def test_build_ldm_predictor(monkeypatch):
     monkeypatch.setattr(settings, "ldm_enabled", False)
     assert main.build_ldm_predictor() is None
 
     monkeypatch.setattr(settings, "ldm_enabled", True)
     monkeypatch.setattr(settings, "ldm_backend", "sklearn")
-    monkeypatch.setattr(settings, "ldm_weights_path", str(tmp_path / "ausente.json"))
     monkeypatch.setattr(main, "generate_dataset", lambda: generate_dataset(1_000))
     predictor = main.build_ldm_predictor()
     assert predictor.backend == "sklearn"
-    assert predictor.weights.versao == "neutro"
+    assert predictor.weights.versao == "mxos_ldm-1.0.0"
     assert predictor.predict_raw({"lead_id": PHONE, "valor_entrada_pct": 0.2}, TRADE_IN)

@@ -49,6 +49,10 @@ class FinancingQuote(BaseModel):
     monthly_rate: float = Field(description="Taxa de juros mensal (fração, ex: 0.019).")
     monthly_payment: float = Field(description="Parcela mensal em reais.")
     total_paid: float = Field(description="Total pago ao fim do contrato.")
+    credit_approval_prob: float | None = Field(
+        default=None,
+        description="Probabilidade real estimada de aprovação de crédito bancário (0-1).",
+    )
 
 
 class TestDriveSlot(BaseModel):

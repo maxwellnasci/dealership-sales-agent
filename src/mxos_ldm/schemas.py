@@ -51,6 +51,9 @@ class VehicleAppraisalInput(_StrictModel):
         gt=0.0, le=2.0, description="Pedido do cliente pelo carro, em fração da FIPE (1.0=FIPE)."
     )
     descricao: str | None = Field(default=None, description="Ex: 'VW Gol 1.0 2018'.")
+    modelo: str | None = Field(
+        default=None, description="Modelo no top 10 de Curitiba (ex: 'Onix') para o φ de km."
+    )
 
 
 class PredictionOutput(_StrictModel):
@@ -69,5 +72,7 @@ class PredictionOutput(_StrictModel):
     backend: str
     versao_pesos: str = "neutro"
     ajustes_liquidez: list[str] = Field(
-        default_factory=list, description="Pesos de liquidez aplicados (ex: 'km_ano>15000')."
+        default_factory=list, description="Pesos de Curitiba aplicados (φ de km, faixa)."
     )
+    km_liquidity_factor: float | None = Field(default=None, ge=0.0, le=2.0)
+    credit_approval_prob: float | None = Field(default=None, ge=0.0, le=1.0)

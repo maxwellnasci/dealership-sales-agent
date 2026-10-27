@@ -173,6 +173,10 @@ def build_seller_card(
         f"{formatar_pct(prediction.margem_liquida_alvo * 100, 0)})",
         negociacao,
     ]
+    if prediction.credit_approval_prob is not None:
+        linhas.append(
+            f"Aprovação de crédito estimada: {formatar_pct(prediction.credit_approval_prob * 100)}"
+        )
     if prediction.ajustes_liquidez:
         linhas.append(
             f"Ajustes de liquidez ({prediction.versao_pesos}): "

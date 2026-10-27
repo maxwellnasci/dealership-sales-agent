@@ -52,7 +52,7 @@ from mxos_ldm.schemas import (
     PredictionOutput,
     VehicleAppraisalInput,
 )
-from mxos_ldm.weights import LiquidityWeights, load_weights
+from mxos_ldm.weights import credit_approval, faixa_entrada, km_liquidity_factor, load_weights
 
 # ---------------------------------------------------------------- fixtures
 
@@ -540,24 +540,19 @@ def test_card_fallback_identidade_do_lead_profile():
     assert "Lead (desconhecido)" in anonimo.texto
 
 
-# ---------------------------------------------------------------- pesos de liquidez (Curitiba)
+# ---------------------------------------------------------------- pesos de Curitiba (Antigravity)
 
-PESOS_CURITIBA = {
-    "versao": "teste-curitiba",
-    "km_ano": {
-        "limite_km_ano": 15000,
-        "multiplicador_prob_acima": 0.8,
-        "multiplicador_giro_acima": 1.5,
-    },
-    "faixas_entrada": {
-        "limite_baixa": 0.20,
-        "limite_alta": 0.40,
-        "multiplicador_prob_baixa": 0.5,
-        "multiplicador_prob_alta": 1.25,
-        "multiplicador_giro_baixa": 1.1,
-        "multiplicador_giro_alta": 0.9,
-    },
-}
+PESOS_PATH = "data/mxos_ldm_weights.json"
+
+
+@pytest.fixture(scope="module")
+def pesos():
+    return load_weights(PESOS_PATH)
+
+
+def _pesos_raw() -> dict:
+    with open(PESOS_PATH, encoding="utf-8") as f:
+        return json.load(f)
 
 
 def test_formatar_pct_virgula_brasileira():
@@ -566,31 +561,33 @@ def test_formatar_pct_virgula_brasileira():
     assert formatar_numero(12.04) == "12,0"
 
 
-def test_load_weights_ausente_e_neutro(tmp_path):
-    neutro = load_weights(tmp_path / "nao_existe.json")
-    assert neutro == LiquidityWeights()
-    assert neutro.multiplicadores(40_000, 0.05) == (1.0, 1.0, [])
+def test_load_weights_arquivo_real(pesos):
+    assert pesos.versao == "mxos_ldm-1.0.0"
+    assert pesos.metadata.benchmark_km_per_year == 15_000.0
+    assert len(pesos.models_curitiba_top10) == 10
+    assert set(pesos.curitiba_hubs) == {"linha_verde", "mario_tourinho"}
 
 
-def test_load_weights_arquivo_valido(tmp_path):
-    path = tmp_path / "w.json"
-    path.write_text(json.dumps(PESOS_CURITIBA))
-    w = load_weights(str(path))
-    assert w.versao == "teste-curitiba"
-    assert w.km_ano.multiplicador_giro_acima == 1.5
+def test_load_weights_ausente_fail_closed(tmp_path):
+    with pytest.raises(FileNotFoundError, match="pesos do mxos_ldm"):
+        load_weights(tmp_path / "nao_existe.json")
 
 
 @pytest.mark.parametrize(
     "mutacao",
     [
-        lambda d: d["km_ano"].update(multiplicador_prob_acima=0),
-        lambda d: d["km_ano"].update(limite_km_ano="15000"),
-        lambda d: d["faixas_entrada"].update(limite_baixa=0.5),  # baixa >= alta
         lambda d: d.update(campo_desconhecido=1),
+        lambda d: d["metadata"].update(engine="outro"),
+        lambda d: d["metadata"].update(app_usage_threshold_km_per_year=10_000.0),
+        lambda d: d["credit_scoring_weights"]["down_payment_spline"].update(low_ltv_cutoff=0.5),
+        lambda d: d["models_curitiba_top10"]["Onix"].update(km_penalty_gamma=-0.1),
+        lambda d: d["models_curitiba_top10"]["Onix"].update(base_days_on_lot_D0="18"),
+        lambda d: d["curitiba_hubs"].update(batel={}),
+        lambda d: d.update(models_curitiba_top10={}),
     ],
 )
 def test_load_weights_malformado_fail_closed(tmp_path, mutacao):
-    data = json.loads(json.dumps(PESOS_CURITIBA))
+    data = _pesos_raw()
     mutacao(data)
     path = tmp_path / "w.json"
     path.write_text(json.dumps(data))
@@ -599,50 +596,110 @@ def test_load_weights_malformado_fail_closed(tmp_path, mutacao):
 
 
 @pytest.mark.parametrize(
-    "km_ano,entrada,esperado",
+    "total_km,idade,esperado",
     [
-        (10_000, 0.30, (1.0, 1.0, [])),
-        (15_000, 0.20, (1.0, 1.0, [])),  # limites são exclusivos
-        (20_000, 0.30, (0.8, 1.5, ["km_ano>15000"])),
-        (10_000, 0.10, (0.5, 1.1, ["entrada<20%"])),
-        (10_000, 0.50, (1.25, 0.9, ["entrada>40%"])),
-        (20_000, 0.50, (1.0, 1.35, ["km_ano>15000", "entrada>40%"])),
+        (24_000, 2.0, (12_000.0, 1.008)),   # abaixo do benchmark: bônus
+        (0, 2.0, (0.0, 1.04)),              # bônus máximo de +4%
+        (30_000, 2.0, (15_000.0, 1.0)),     # exatamente no benchmark
+        (48_000, 2.0, (24_000.0, 0.749)),   # acima: decaimento γ (ex-app em formação)
+        (60_000, 2.0, (30_000.0, 0.552)),   # acima de 25 mil: penhasco η
+        (400_000, 1.0, (400_000.0, 0.15)),  # piso
+        (6_000, 0, (12_000.0, 1.008)),      # idade 0 -> 0,5 ano
     ],
 )
-def test_multiplicadores(km_ano, entrada, esperado):
-    prob, giro, ajustes = LiquidityWeights.model_validate(PESOS_CURITIBA).multiplicadores(
-        km_ano, entrada
-    )
-    assert prob == pytest.approx(esperado[0])
-    assert giro == pytest.approx(esperado[1])
-    assert ajustes == esperado[2]
+def test_km_liquidity_factor(pesos, total_km, idade, esperado):
+    assert km_liquidity_factor(pesos, "Onix", total_km, idade) == esperado
 
 
-def test_predictor_aplica_pesos(dataset):
-    neutro = LDMPredictor(backend="sklearn")
-    pesos = LiquidityWeights.model_validate(PESOS_CURITIBA)
-    pesado = LDMPredictor(backend="sklearn", weights=pesos)
-    neutro.fit(dataset)
-    pesado.fit(dataset)
+def test_km_liquidity_factor_monotonico(pesos):
+    phis = [km_liquidity_factor(pesos, "HB20", km, 3.0)[1] for km in range(45_000, 120_000, 5_000)]
+    assert phis == sorted(phis, reverse=True)
 
-    # 2019 com 160 mil km -> ~22,9 mil km/ano (acima de 15 mil); entrada 10% (< 20%)
-    lead = LeadData(**_lead(valor_entrada_pct=0.10))
-    vehicle = VehicleAppraisalInput(**_vehicle(km_rodados=160_000))
-    base, ajustado = neutro.predict(lead, vehicle), pesado.predict(lead, vehicle)
 
-    assert base.ajustes_liquidez == [] and base.versao_pesos == "neutro"
-    assert ajustado.ajustes_liquidez == ["km_ano>15000", "entrada<20%"]
-    assert ajustado.versao_pesos == "teste-curitiba"
-    assert ajustado.probabilidade_fechamento == pytest.approx(
-        base.probabilidade_fechamento * 0.8 * 0.5, abs=0.1
-    )
+@pytest.mark.parametrize(
+    "entrada,esperado",
+    [
+        (0.15, (0.361, 0.0200)),
+        (0.30, (0.532, 0.0189)),
+        (0.45, (0.726, 0.0182)),
+        (1.50, (0.996, 0.0161)),   # entrada truncada em 100%
+        (-0.1, (0.199, 0.0233)),   # entrada truncada em 0%
+    ],
+)
+def test_credit_approval_spline(pesos, entrada, esperado):
+    assert credit_approval(pesos, entrada) == esperado
+
+
+def test_credit_approval_score_e_dti(pesos):
+    base, _ = credit_approval(pesos, 0.30)
+    assert credit_approval(pesos, 0.30, credit_score=800)[0] > base
+    assert credit_approval(pesos, 0.30, dti_ratio=0.45)[0] < base
+    assert credit_approval(pesos, 0.30, vehicle_age_years=8)[0] < base
+    assert credit_approval(pesos, 0.30, credit_score=2_000)[1] == 0.0129  # piso da taxa
+
+
+@pytest.mark.parametrize(
+    "entrada,rotulo", [(0.10, "entrada<20%"), (0.20, "entrada 20%-40%"), (0.41, "entrada>40%")]
+)
+def test_faixa_entrada(pesos, entrada, rotulo):
+    assert faixa_entrada(pesos, entrada) == rotulo
+
+
+@pytest.fixture(scope="module")
+def sklearn_predictor(dataset):
+    p = LDMPredictor(backend="sklearn")
+    p.fit(dataset)
+    return p
+
+
+def test_predictor_aplica_pesos_curitiba(sklearn_predictor, pesos, monkeypatch):
+    lead = LeadData(**_lead(valor_entrada_pct=0.15))
+    # Onix 2024 com 48 mil km -> 24 mil km/ano -> φ = 0,749
+    vehicle = VehicleAppraisalInput(**_vehicle(ano_modelo=2024, km_rodados=48_000, modelo="Onix"))
+    base = sklearn_predictor.predict(lead, vehicle)
+    monkeypatch.setattr(sklearn_predictor, "weights", pesos)
+    ajustado = sklearn_predictor.predict(lead, vehicle)
+
+    assert base.versao_pesos == "neutro"
+    assert base.km_liquidity_factor is None and base.credit_approval_prob is None
+    assert base.ajustes_liquidez == []
+
+    assert ajustado.versao_pesos == "mxos_ldm-1.0.0"
+    assert ajustado.km_liquidity_factor == 0.749
+    assert ajustado.credit_approval_prob == 0.361
+    assert ajustado.ajustes_liquidez == ["km/ano 24.000 φ=0.749", "entrada<20%"]
+    # giro = giro_base / φ ; teto sai do giro ajustado
     assert ajustado.giro_estimado_dias > base.giro_estimado_dias
     assert ajustado.avaliacao_fipe_recomendada == avaliacao_fipe_recomendada(
         ajustado.giro_estimado_dias
     )
+    # entrada já é feature do classificador: probabilidade NÃO é multiplicada
+    assert ajustado.probabilidade_fechamento == base.probabilidade_fechamento
 
 
-def test_card_mostra_ajustes_de_liquidez():
-    pred = _prediction(versao_pesos="curitiba-v1", ajustes_liquidez=["km_ano>15000"])
-    card = build_seller_card(_state(ldm_prediction=pred), now=NOW)
-    assert card.texto.splitlines()[-1] == "Ajustes de liquidez (curitiba-v1): km_ano>15000"
+@pytest.mark.parametrize(
+    "modelo,rotulos",
+    [(None, ["entrada 20%-40%"]), ("Gol", ["Gol fora do top 10 (sem φ de km)", "entrada 20%-40%"])],
+)
+def test_predictor_modelo_fora_do_top10(sklearn_predictor, pesos, monkeypatch, modelo, rotulos):
+    vehicle = VehicleAppraisalInput(**_vehicle(modelo=modelo))
+    base = sklearn_predictor.predict(LeadData(**_lead()), vehicle)
+    monkeypatch.setattr(sklearn_predictor, "weights", pesos)
+    out = sklearn_predictor.predict(LeadData(**_lead()), vehicle)
+    assert out.km_liquidity_factor is None
+    assert out.giro_estimado_dias == base.giro_estimado_dias
+    assert out.ajustes_liquidez == rotulos
+
+
+def test_card_mostra_credito_e_ajustes():
+    pred = _prediction(
+        versao_pesos="mxos_ldm-1.0.0",
+        ajustes_liquidez=["km/ano 24.000 φ=0.749", "entrada<20%"],
+        credit_approval_prob=0.361,
+        km_liquidity_factor=0.749,
+    )
+    linhas = build_seller_card(_state(ldm_prediction=pred), now=NOW).texto.splitlines()
+    assert linhas[-2:] == [
+        "Aprovação de crédito estimada: 36,1%",
+        "Ajustes de liquidez (mxos_ldm-1.0.0): km/ano 24.000 φ=0.749, entrada<20%",
+    ]

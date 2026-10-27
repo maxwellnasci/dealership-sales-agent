@@ -1,0 +1,167 @@
+{
+  "metadata": {
+    "engine": "mxos_ldm",
+    "version": "1.0.0",
+    "region": "Curitiba-PR (Linha Verde & Gen. Mario Tourinho)",
+    "currency": "BRL",
+    "benchmark_km_per_year": 15000.0,
+    "app_usage_threshold_km_per_year": 25000.0
+  },
+  "credit_scoring_weights": {
+    "beta_0_intercept": -0.085,
+    "beta_score_per_100pts": 0.68,
+    "beta_vehicle_age_over_3y": 0.14,
+    "beta_dti_over_30pct": 3.80,
+    "down_payment_spline": {
+      "low_ltv_cutoff": 0.20,
+      "high_ltv_cutoff": 0.40,
+      "sub_20_intercept": -1.65,
+      "sub_20_slope": 5.50,
+      "mid_20_40_intercept": -0.55,
+      "mid_20_40_slope": 4.25,
+      "over_40_intercept": 0.30,
+      "over_40_slope": 8.40
+    },
+    "rate_spread_adjustment_monthly": {
+      "base_rate_am": 0.0189,
+      "sub_20_penalty_am": 0.0044,
+      "over_40_discount_am": -0.0028
+    }
+  },
+  "curitiba_hubs": {
+    "linha_verde": {
+      "avg_prep_cost_pct": 0.028,
+      "min_target_margin_pct": 0.085,
+      "walk_in_financing_share": 0.78,
+      "daily_holding_cost_rate": 0.00065
+    },
+    "mario_tourinho": {
+      "avg_prep_cost_pct": 0.034,
+      "min_target_margin_pct": 0.075,
+      "walk_in_financing_share": 0.48,
+      "daily_holding_cost_rate": 0.00055
+    }
+  },
+  "models_curitiba_top10": {
+    "Onix": {
+      "segment": "hatch_compacto",
+      "primary_hub": "linha_verde",
+      "base_liquidity_L0": 0.94,
+      "base_days_on_lot_D0": 18.0,
+      "fipe_retail_retention_rho": 0.985,
+      "optimal_trade_in_fipe_tau0": 0.835,
+      "km_penalty_gamma": 0.0321,
+      "km_app_cliff_eta": 0.0045,
+      "trade_in_stiffness_lambda": 13.8,
+      "km_price_elasticity": 0.402
+    },
+    "HB20": {
+      "segment": "hatch_compacto",
+      "primary_hub": "linha_verde",
+      "base_liquidity_L0": 0.93,
+      "base_days_on_lot_D0": 19.0,
+      "fipe_retail_retention_rho": 0.980,
+      "optimal_trade_in_fipe_tau0": 0.835,
+      "km_penalty_gamma": 0.030,
+      "km_app_cliff_eta": 0.0042,
+      "trade_in_stiffness_lambda": 13.5,
+      "km_price_elasticity": 0.400
+    },
+    "Polo": {
+      "segment": "hatch_compacto",
+      "primary_hub": "linha_verde",
+      "base_liquidity_L0": 0.91,
+      "base_days_on_lot_D0": 21.0,
+      "fipe_retail_retention_rho": 0.975,
+      "optimal_trade_in_fipe_tau0": 0.825,
+      "km_penalty_gamma": 0.034,
+      "km_app_cliff_eta": 0.0040,
+      "trade_in_stiffness_lambda": 14.0,
+      "km_price_elasticity": 0.400
+    },
+    "Kwid": {
+      "segment": "subcompacto",
+      "primary_hub": "linha_verde",
+      "base_liquidity_L0": 0.78,
+      "base_days_on_lot_D0": 26.0,
+      "fipe_retail_retention_rho": 0.935,
+      "optimal_trade_in_fipe_tau0": 0.785,
+      "km_penalty_gamma": 0.052,
+      "km_app_cliff_eta": 0.0075,
+      "trade_in_stiffness_lambda": 16.2,
+      "km_price_elasticity": 0.420
+    },
+    "Tracker": {
+      "segment": "suv_compacto",
+      "primary_hub": "ambos",
+      "base_liquidity_L0": 0.88,
+      "base_days_on_lot_D0": 24.0,
+      "fipe_retail_retention_rho": 0.970,
+      "optimal_trade_in_fipe_tau0": 0.840,
+      "km_penalty_gamma": 0.038,
+      "km_app_cliff_eta": 0.0038,
+      "trade_in_stiffness_lambda": 13.2,
+      "km_price_elasticity": 0.405
+    },
+    "Creta": {
+      "segment": "suv_compacto",
+      "primary_hub": "ambos",
+      "base_liquidity_L0": 0.89,
+      "base_days_on_lot_D0": 23.0,
+      "fipe_retail_retention_rho": 0.978,
+      "optimal_trade_in_fipe_tau0": 0.850,
+      "km_penalty_gamma": 0.035,
+      "km_app_cliff_eta": 0.0035,
+      "trade_in_stiffness_lambda": 12.8,
+      "km_price_elasticity": 0.405
+    },
+    "Compass": {
+      "segment": "suv_medio",
+      "primary_hub": "mario_tourinho",
+      "base_liquidity_L0": 0.79,
+      "base_days_on_lot_D0": 34.0,
+      "fipe_retail_retention_rho": 0.940,
+      "optimal_trade_in_fipe_tau0": 0.810,
+      "km_penalty_gamma": 0.048,
+      "km_app_cliff_eta": 0.0055,
+      "trade_in_stiffness_lambda": 15.41,
+      "km_price_elasticity": 0.415
+    },
+    "Hilux": {
+      "segment": "picape_media_diesel",
+      "primary_hub": "mario_tourinho",
+      "base_liquidity_L0": 0.90,
+      "base_days_on_lot_D0": 27.0,
+      "fipe_retail_retention_rho": 1.005,
+      "optimal_trade_in_fipe_tau0": 0.880,
+      "km_penalty_gamma": 0.018,
+      "km_app_cliff_eta": 0.0015,
+      "trade_in_stiffness_lambda": 11.5,
+      "km_price_elasticity": 0.380
+    },
+    "Corolla": {
+      "segment": "sedan_medio",
+      "primary_hub": "mario_tourinho",
+      "base_liquidity_L0": 0.95,
+      "base_days_on_lot_D0": 20.0,
+      "fipe_retail_retention_rho": 1.010,
+      "optimal_trade_in_fipe_tau0": 0.885,
+      "km_penalty_gamma": 0.022,
+      "km_app_cliff_eta": 0.0025,
+      "trade_in_stiffness_lambda": 11.8,
+      "km_price_elasticity": 0.400
+    },
+    "Civic": {
+      "segment": "sedan_medio",
+      "primary_hub": "mario_tourinho",
+      "base_liquidity_L0": 0.92,
+      "base_days_on_lot_D0": 22.0,
+      "fipe_retail_retention_rho": 1.035,
+      "optimal_trade_in_fipe_tau0": 0.895,
+      "km_penalty_gamma": 0.026,
+      "km_app_cliff_eta": 0.0030,
+      "trade_in_stiffness_lambda": 12.0,
+      "km_price_elasticity": 0.400
+    }
+  }
+}
