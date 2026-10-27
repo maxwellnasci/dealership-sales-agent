@@ -59,6 +59,14 @@ class Settings(BaseSettings):
     # Número máximo de veículos sugeridos por resposta.
     max_vehicle_suggestions: int = 3
 
+    # --- mxos_ldm (scoring preditivo, opcional) --------------------------
+    # Desligado por padrão: o modelo ainda é treinado em dados SINTÉTICOS
+    # (mxos_ldm/data_engine.py). Ligar só para homologação até plugar o
+    # histórico real da revenda.
+    ldm_enabled: bool = False
+    ldm_backend: str = "auto"
+    ldm_weights_path: str = "./data/mxos_ldm_weights.json"
+
     @property
     def llm_configured(self) -> bool:
         """True quando há credencial para falar com um LLM real."""

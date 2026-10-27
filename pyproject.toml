@@ -19,6 +19,9 @@ dependencies = [
     "uvicorn[standard]>=0.32",
     "httpx>=0.27",
     "langfuse>=3.0",
+    # mxos_ldm (nó predict_lead_scoring do grafo)
+    "numpy>=1.26",
+    "scikit-learn>=1.5",
 ]
 
 [project.optional-dependencies]
@@ -28,13 +31,21 @@ dev = [
     "ruff>=0.8",
     "pytest-cov>=5.0",
 ]
+# Backend XGBoost do mxos_ldm (sem ele, `auto` cai no scikit-learn).
+ldm = [
+    "xgboost>=2.1",
+]
+# Backend opcional do mxos_ldm (puxa torch; não entra no CI).
+tabpfn = [
+    "tabpfn>=2.0",
+]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/dealership_agent"]
+packages = ["src/dealership_agent", "src/mxos_ldm"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -44,7 +55,7 @@ pythonpath = ["src"]
 python_classes = []
 
 [tool.coverage.run]
-source = ["dealership_agent"]
+source = ["dealership_agent", "mxos_ldm"]
 
 [tool.coverage.report]
 fail_under = 90

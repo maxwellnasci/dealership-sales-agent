@@ -78,7 +78,8 @@ sem falso positivo.
 | **Human-in-the-loop (interrupt)** | `graph/nodes/handoff_human.py` — `interrupt()` + `Command(resume=...)` |
 | **Tool calling com retry** | `tools/inventory.py` (tenacity); `tools/financing.py`, `tools/calendar.py` |
 | **Anti-alucinação em 3 camadas** | `schemas/*` (estrutural) + `_PERSONA` + `guardrails/validator.py` (preço/ano/km amarrados ao veículo citado; data+hora do slot) |
-| **Suíte determinística (159 testes, 97% de cobertura, gate de 90% no CI)** | `tests/` — tudo `async`, perfis/tools tipados, zero rede e zero API key |
+| **Scoring preditivo (mxos_ldm)** | `graph/nodes/predict_lead_scoring.py` + `src/mxos_ldm/` — probabilidade de fechamento, giro do carro da troca, teto de avaliação (margem líquida 12%) e Card Executivo das 08h30; fail-closed sem FIPE |
+| **Suíte determinística (275 testes, 98% de cobertura, gate de 90% no CI)** | `tests/` — tudo `async`, perfis/tools tipados, zero rede e zero API key |
 | **Observabilidade (Langfuse)** | `observability/tracing.py` — custo + score por conversa |
 | **Avaliação (LLM-as-judge)** | `llm.py::judge` + `tests/test_llm_judge.py` |
 
@@ -95,7 +96,7 @@ python scripts/demo.py
 Sem `OPENAI_API_KEY`, roda em **fallback determinístico**. Com chave (qualquer
 endpoint OpenAI-compatível), as respostas ficam naturais.
 
-### 2. Testes (159 testes determinísticos)
+### 2. Testes (275 testes determinísticos)
 
 ```bash
 pytest           # rápido, sem rede, sem API key — usa LLM scriptado
@@ -132,6 +133,27 @@ python scripts/benchmark_router.py
 | **Custo médio por decisão** | ~US$ 0.00015+ | **US$ 0.000018** (~55 decisões por US$ 0.001) |
 | **Confiança calibrada (`p`)** | Não nativo | **Sim (`probabilities` + `confidence` 0..1)** |
 | **Resiliência sem API key / erro** | Fallback `TemplateLLMClient` | **Degradação graciosa para o roteador clássico** |
+
+## Scoring preditivo (mxos_ldm)
+
+Depois de `qualify_lead`, o nó `predict_lead_scoring` roda o LDM quando o lead
+tem carro na troca (`trade_in` no `/webhook`, com FIPE vinda do CRM/tabela
+oficial — nunca extraída pelo LLM):
+
+- **probabilidade de fechamento** (0-100) e **giro estimado** do carro da troca
+  (XGBoost; `auto` cai em scikit-learn; TabPFN opcional);
+- **teto de avaliação** em % da FIPE por fórmula fechada de margem líquida 12%;
+- **pesos de liquidez da Matriz de Curitiba** (`data/mxos_ldm_weights.json`,
+  formato em `mxos_ldm/weights.py`): km/ano > 15 mil e faixas de entrada
+  < 20% / > 40%. Sem o arquivo, os pesos são neutros;
+- **Card Executivo** em `seller_briefing_card`, agendado para as 08h30.
+
+Tudo persiste no checkpoint (tipos na allowlist) e **nada disso chega à
+resposta do lead**. FIPE nula/NaN/zero: 422 na API e card BLOQUEADO no grafo.
+
+> ⚠️ O modelo ainda é treinado em dataset **sintético** (`data_engine.py`).
+> Por isso `LDM_ENABLED=false` por padrão — ligar só em homologação até plugar
+> o histórico real da revenda.
 
 ## Decisões de projeto
 

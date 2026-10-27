@@ -2,8 +2,8 @@
 
 Topologia (padrão supervisor + especialistas):
 
-    START -> supervisor -[route]-> qualify_lead ----[tem critério?]--> search_inventory
-                                 |                                  \\-> synthesize_reply
+    START -> supervisor -[route]-> qualify_lead -> predict_lead_scoring (LDM)
+                                 |      \\--[tem critério?]--> search_inventory | synthesize_reply
                                  |-> search_inventory --------------------> synthesize_reply
                                  |-> schedule_test_drive -----------------> synthesize_reply
                                  |-> financing ----------------------------> synthesize_reply
@@ -14,6 +14,9 @@ Topologia (padrão supervisor + especialistas):
 O `LLMClient` é injetado (ports & adapters): produção passa `OpenAILLMClient`,
 testes passam um cliente scriptado. Adicionar um especialista = um nó novo +
 uma `Intent` + uma entrada no mapa de roteamento, sem tocar no resto.
+
+O `LDMPredictor` (mxos_ldm) também é injetado e é opcional: sem ele,
+`predict_lead_scoring` é um no-op e o fluxo é idêntico ao anterior.
 """
 
 from __future__ import annotations
@@ -25,6 +28,7 @@ from langgraph.graph import END, START, StateGraph
 
 from dealership_agent.graph.nodes.financing import financing_node
 from dealership_agent.graph.nodes.handoff_human import handoff_human_node
+from dealership_agent.graph.nodes.predict_lead_scoring import predict_lead_scoring_node
 from dealership_agent.graph.nodes.qualify_lead import qualify_lead_node
 from dealership_agent.graph.nodes.schedule_test_drive import schedule_test_drive_node
 from dealership_agent.graph.nodes.search_inventory import search_inventory_node
@@ -34,6 +38,7 @@ from dealership_agent.graph.state import GraphState
 from dealership_agent.llm import LLMClient
 from dealership_agent.schemas.lead import LeadProfile
 from dealership_agent.schemas.routing import Intent
+from mxos_ldm.model import LDMPredictor
 
 # Intent (saída do supervisor) -> nó de destino.
 INTENT_TO_NODE: dict[str, str] = {
@@ -60,12 +65,17 @@ def route_after_qualify(state: GraphState) -> str:
     return "synthesize_reply"
 
 
-def build_graph(checkpointer: BaseCheckpointSaver, llm: LLMClient):
-    """Compila o grafo com o checkpointer e o cliente de LLM injetados."""
+def build_graph(
+    checkpointer: BaseCheckpointSaver, llm: LLMClient, predictor: LDMPredictor | None = None
+):
+    """Compila o grafo com o checkpointer, o cliente de LLM e o LDM (opcional)."""
     graph = StateGraph(GraphState)
 
     graph.add_node("supervisor", partial(supervisor_node, llm=llm))
     graph.add_node("qualify_lead", partial(qualify_lead_node, llm=llm))
+    graph.add_node(
+        "predict_lead_scoring", partial(predict_lead_scoring_node, predictor=predictor)
+    )
     graph.add_node("search_inventory", partial(search_inventory_node, llm=llm))
     graph.add_node("schedule_test_drive", partial(schedule_test_drive_node, llm=llm))
     graph.add_node("financing", partial(financing_node, llm=llm))
@@ -86,8 +96,9 @@ def build_graph(checkpointer: BaseCheckpointSaver, llm: LLMClient):
             "synthesize_reply": "synthesize_reply",
         },
     )
+    graph.add_edge("qualify_lead", "predict_lead_scoring")
     graph.add_conditional_edges(
-        "qualify_lead",
+        "predict_lead_scoring",
         route_after_qualify,
         {"search_inventory": "search_inventory", "synthesize_reply": "synthesize_reply"},
     )

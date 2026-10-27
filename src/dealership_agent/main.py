@@ -17,16 +17,24 @@ from fastapi import FastAPI
 from langgraph.types import Command
 from pydantic import BaseModel
 
+from dealership_agent.config import settings
 from dealership_agent.graph.builder import build_graph
 from dealership_agent.graph.state import initial_state
 from dealership_agent.llm import get_llm_client
 from dealership_agent.observability.tracing import get_langfuse_handler
 from dealership_agent.persistence.checkpointer import checkpointer_context
+from mxos_ldm.data_engine import generate_dataset
+from mxos_ldm.model import LDMPredictor
+from mxos_ldm.schemas import VehicleAppraisalInput
+from mxos_ldm.weights import load_weights
 
 
 class InboundMessage(BaseModel):
     phone: str
     text: str
+    # Carro da troca, vindo do CRM/formulário de avaliação (FIPE de fonte
+    # oficial, nunca extraída pelo LLM). FIPE nula -> 422 na borda.
+    trade_in: VehicleAppraisalInput | None = None
 
 
 class ResumeMessage(BaseModel):
@@ -40,10 +48,22 @@ class AgentReply(BaseModel):
     interrupt_payload: dict | None = None
 
 
+def build_ldm_predictor() -> LDMPredictor | None:
+    """Treina o LDM no startup quando `ldm_enabled` (sintético, ~1-2 s)."""
+    if not settings.ldm_enabled:
+        return None
+    predictor = LDMPredictor(
+        backend=settings.ldm_backend,  # type: ignore[arg-type]
+        weights=load_weights(settings.ldm_weights_path),
+    )
+    predictor.fit(generate_dataset())
+    return predictor
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with checkpointer_context() as checkpointer:
-        app.state.graph = build_graph(checkpointer, get_llm_client())
+        app.state.graph = build_graph(checkpointer, get_llm_client(), build_ldm_predictor())
         yield
 
 
@@ -74,7 +94,7 @@ async def webhook(msg: InboundMessage) -> AgentReply:
     operador e fica aguardando um POST em /resume.
     """
     result = await app.state.graph.ainvoke(
-        initial_state(msg.text, msg.phone), config=_run_config(msg.phone)
+        initial_state(msg.text, msg.phone, msg.trade_in), config=_run_config(msg.phone)
     )
     return _to_reply(result)
 

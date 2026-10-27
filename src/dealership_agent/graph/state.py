@@ -6,7 +6,10 @@ Dois campos têm reducer (semântica de acumulação entre nós e entre turnos):
   - `lead_profile`: perfil do lead, reducer `merge_lead_profile` — merge
     incremental que nunca apaga um dado já coletado.
 
-O resto é "por turno": carregado do checkpoint, sobrescrito pelo turno atual.
+O resto é "por turno": carregado do checkpoint, sobrescrito pelo turno atual —
+exceto os campos do LDM (`ldm_*` e `seller_briefing_card`), que persistem
+entre turnos: o carro da troca não muda a cada "oi" e o card das 08h30 é lido
+do checkpoint. Eles nunca chegam à resposta do lead (são só para o vendedor).
 O checkpointer persiste o estado inteiro por `thread_id` (= telefone do lead),
 então a memória entre mensagens de WhatsApp é literalmente este TypedDict
 ressuscitado a cada mensagem.
@@ -20,6 +23,8 @@ from langgraph.graph.message import add_messages
 
 from dealership_agent.schemas.lead import LeadProfile
 from dealership_agent.schemas.tools import FinancingQuote, TestDriveSlot, Vehicle
+from mxos_ldm.sales_bridge import SellerCard
+from mxos_ldm.schemas import PredictionOutput, VehicleAppraisalInput
 
 
 def merge_lead_profile(old: LeadProfile | None, new: LeadProfile | None) -> LeadProfile:
@@ -52,8 +57,15 @@ class GraphState(TypedDict, total=False):
     final_reply: str | None         # resposta natural já validada pelos guardrails
     guardrail_flags: list[str]      # o que o validador barrou/ajustou (observabilidade)
 
+    # --- LDM (persistem entre turnos; só para o vendedor humano) ----------
+    ldm_vehicle_input: VehicleAppraisalInput | None  # carro da troca (FIPE vem de fonte externa)
+    ldm_prediction: PredictionOutput | None
+    seller_briefing_card: SellerCard | None
 
-def initial_state(message: str, phone: str) -> dict:
+
+def initial_state(
+    message: str, phone: str, ldm_vehicle_input: VehicleAppraisalInput | None = None
+) -> dict:
     """Estado de entrada para uma mensagem nova do lead.
 
     `messages` e `lead_profile` ACUMULAM via reducer (memória real entre
@@ -63,8 +75,11 @@ def initial_state(message: str, phone: str) -> dict:
     `guardrail_flags` de um turno anterior vazaria para um turno seguinte que
     não os recompute (ex: o lead volta dias depois só pra dizer "oi" e veria
     uma simulação/agendamento velho). Resetar na entrada elimina esse vazamento.
+
+    `ldm_vehicle_input` só entra no dict quando informado: omitir a chave
+    preserva o carro da troca já persistido no checkpoint.
     """
-    return {
+    state = {
         "messages": [{"role": "user", "content": message}],
         "lead_profile": LeadProfile(phone=phone),
         "route": None,
@@ -74,3 +89,6 @@ def initial_state(message: str, phone: str) -> dict:
         "final_reply": None,
         "guardrail_flags": [],
     }
+    if ldm_vehicle_input is not None:
+        state["ldm_vehicle_input"] = ldm_vehicle_input
+    return state

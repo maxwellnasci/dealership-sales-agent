@@ -25,9 +25,19 @@ from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from dealership_agent.config import secret, settings
 from dealership_agent.schemas.lead import LeadProfile
 from dealership_agent.schemas.tools import FinancingQuote, TestDriveSlot, Vehicle
+from mxos_ldm.sales_bridge import SellerCard
+from mxos_ldm.schemas import PredictionOutput, VehicleAppraisalInput
 
 # Tipos de domínio que trafegam no `GraphState` e vão para o checkpoint.
-CHECKPOINT_TYPES: tuple[type, ...] = (LeadProfile, Vehicle, FinancingQuote, TestDriveSlot)
+CHECKPOINT_TYPES: tuple[type, ...] = (
+    LeadProfile,
+    Vehicle,
+    FinancingQuote,
+    TestDriveSlot,
+    VehicleAppraisalInput,
+    PredictionOutput,
+    SellerCard,
+)
 
 
 def checkpoint_serde() -> JsonPlusSerializer:
